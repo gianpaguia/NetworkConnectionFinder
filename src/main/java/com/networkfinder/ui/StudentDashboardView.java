@@ -1,11 +1,11 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
 import com.networkfinder.dsa.*;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
 import com.networkfinder.service.AuthService;
+import com.networkfinder.service.OperationResult;
 import com.networkfinder.service.ValidationException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -22,7 +22,6 @@ import java.util.*;
 public class StudentDashboardView extends BorderPane {
     private final User currentUser;
     private final NetworkService networkService = NetworkService.getInstance();
-    private final ProfileDao profileDao = new ProfileDao();
 
     private final StackPane contentArea = new StackPane();
     private Button windowBackBtn;
@@ -106,7 +105,7 @@ public class StudentDashboardView extends BorderPane {
         Label nameLbl = new Label(currentUser.getFullName());
         nameLbl.getStyleClass().add("fluent-user-name");
 
-        StudentProfile profile = profileDao.getProfile(currentUser.getStudentId());
+            StudentProfile profile = networkService.getStudentProfile(currentUser.getStudentId());
 
         String subText = currentUser.getStudentId();
         if (profile != null && profile.getCourse() != null) {
@@ -678,10 +677,11 @@ public class StudentDashboardView extends BorderPane {
                 actionBtn = new Button("✓ Accept Request");
                 actionBtn.getStyleClass().add("button-primary");
                 actionBtn.setOnAction(e -> {
-                    if (networkService.acceptConnectionRequest(targetId, currentId)) {
+                    OperationResult res = networkService.acceptConnectionRequest(targetId, currentId);
+                    if (res.isOk()) {
                         showStudyGroupMatcherScreen();
                     } else {
-                        UiDialogs.showError("Could not accept the request. It may have been withdrawn by the sender.");
+                        UiDialogs.showError(res.getMessage());
                     }
                 });
             }
@@ -689,10 +689,11 @@ public class StudentDashboardView extends BorderPane {
             actionBtn = new Button("+ Send Request");
             actionBtn.getStyleClass().add("button-primary");
             actionBtn.setOnAction(e -> {
-                if (networkService.sendConnectionRequest(currentId, targetId)) {
+                OperationResult res = networkService.sendConnectionRequest(currentId, targetId);
+                if (res.isOk()) {
                     showStudyGroupMatcherScreen();
                 } else {
-                    UiDialogs.showError("Could not send the request. This student may already be connected to you, already have a pending invitation, or is not available.");
+                    UiDialogs.showError(res.getMessage());
                 }
             });
         }
@@ -918,10 +919,11 @@ public class StudentDashboardView extends BorderPane {
                 acceptBtn.getStyleClass().add("button-primary");
                 acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 acceptBtn.setOnAction(e -> {
-                    if (networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
+                    OperationResult res = networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    if (res.isOk()) {
                         showConnectionsScreen();
                     } else {
-                        UiDialogs.showError("Could not accept this request. It may have already been handled.");
+                        UiDialogs.showError(res.getMessage());
                     }
                 });
 
@@ -929,10 +931,11 @@ public class StudentDashboardView extends BorderPane {
                 declineBtn.getStyleClass().add("button-secondary");
                 declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12; -fx-text-fill: -fx-danger;");
                 declineBtn.setOnAction(e -> {
-                    if (networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
+                    OperationResult res = networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    if (res.isOk()) {
                         showConnectionsScreen();
                     } else {
-                        UiDialogs.showError("Could not decline this request. It may have already been handled.");
+                        UiDialogs.showError(res.getMessage());
                     }
                 });
 
@@ -979,10 +982,11 @@ public class StudentDashboardView extends BorderPane {
                 cancelBtn.getStyleClass().add("button-secondary");
                 cancelBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 cancelBtn.setOnAction(e -> {
-                    if (networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId())) {
+                    OperationResult res = networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId());
+                    if (res.isOk()) {
                         showConnectionsScreen();
                     } else {
-                        UiDialogs.showError("Could not cancel this request. It may have already been handled.");
+                        UiDialogs.showError(res.getMessage());
                     }
                 });
 
@@ -1025,10 +1029,11 @@ public class StudentDashboardView extends BorderPane {
         sendReqBtn.setOnAction(e -> {
             StudentNode target = classmatePicker.getValue();
             if (target != null) {
-                if (networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId())) {
+                OperationResult res = networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId());
+                if (res.isOk()) {
                     showConnectionsScreen();
                 } else {
-                    UiDialogs.showError("Could not send the request. This classmate may already be connected to you, already have a pending invitation, or is not available.");
+                    UiDialogs.showError(res.getMessage());
                 }
             }
         });
@@ -1068,10 +1073,11 @@ public class StudentDashboardView extends BorderPane {
                 disconnectBtn.getStyleClass().add("button-secondary");
                 disconnectBtn.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-danger;");
                 disconnectBtn.setOnAction(e -> {
-                    if (networkService.removeConnection(currentUser.getStudentId(), nId)) {
+                    OperationResult res = networkService.removeConnection(currentUser.getStudentId(), nId);
+                    if (res.isOk()) {
                         showConnectionsScreen();
                     } else {
-                        UiDialogs.showError("Could not remove this connection.");
+                        UiDialogs.showError(res.getMessage());
                     }
                 });
 

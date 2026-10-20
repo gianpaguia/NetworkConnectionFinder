@@ -1,7 +1,5 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
@@ -19,8 +17,7 @@ import java.util.List;
 
 public class ProfileWizardView extends StackPane {
     private final User user;
-    private final ProfileDao profileDao = new ProfileDao();
-    private final UserDao userDao = new UserDao();
+    private final NetworkService networkService = NetworkService.getInstance();
 
     private int currentStep = 1;
 
@@ -511,6 +508,7 @@ public class ProfileWizardView extends StackPane {
 
         Button finishBtn = new Button("Finish Profile");
         finishBtn.getStyleClass().add("button-accent");
+        finishBtn.setDefaultButton(true);
         finishBtn.setOnAction(e -> {
             // Save profile
             StudentProfile profile = new StudentProfile(
@@ -524,12 +522,8 @@ public class ProfileWizardView extends StackPane {
                     selectedInterests,
                     enteredOtherInterest
             );
-            profileDao.saveOrUpdateProfile(profile);
-            userDao.updateProfileCompleted(user.getStudentId(), true);
+            networkService.saveStudentProfile(user.getStudentId(), profile);
             user.setProfileCompleted(true);
-
-            // Synchronize Graph Node
-            NetworkService.getInstance().reloadGraph();
 
             // Navigate to Screen 12
             ScreenNavigator.showProfileSummary(user, profile);

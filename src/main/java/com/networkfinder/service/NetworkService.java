@@ -84,62 +84,101 @@ public class NetworkService {
         return NetworkMetrics.getTopCoordinators(graph, limit);
     }
 
-    public synchronized boolean addConnection(String student1, String student2) {
-        if (!isValidConnectionPair(student1, student2)) {
-            return false;
+    public synchronized OperationResult addConnection(String student1, String student2) {
+        String pairError = connectionPairError(student1, student2);
+        if (pairError != null) {
+            return OperationResult.fail(pairError);
+        }
+        com.networkfinder.model.Connection existing = connectionDao.getConnectionBetween(student1, student2);
+        if (existing != null) {
+            return OperationResult.fail(existing.getStatus() == ConnectionStatus.ACCEPTED
+                    ? "You are already connected to " + nameOf(student2) + "."
+                    : "A pending request with " + nameOf(student2) + " already exists.");
         }
         boolean dbSuccess = connectionDao.addConnection(student1, student2, ConnectionStatus.ACCEPTED);
-        if (dbSuccess) {
-            graph.addEdge(student1, student2);
+        if (!dbSuccess) {
+            return OperationResult.fail("Could not save this connection. Please try again.");
         }
-        return dbSuccess;
+        graph.addEdge(student1, student2);
+        return OperationResult.ok();
     }
 
-    public synchronized boolean removeConnection(String student1, String student2) {
+    public synchronized OperationResult removeConnection(String student1, String student2) {
         boolean dbSuccess = connectionDao.removeConnection(student1, student2);
-        if (dbSuccess) {
-            graph.removeEdge(student1, student2);
+        if (!dbSuccess) {
+            return OperationResult.fail("No connection record was found between these students.");
         }
-        return dbSuccess;
+        graph.removeEdge(student1, student2);
+        return OperationResult.ok("Connection removed.");
     }
 
     public boolean hasConnection(String student1, String student2) {
         return graph.hasEdge(student1, student2);
     }
 
-    public synchronized boolean sendConnectionRequest(String requesterId, String receiverId) {
-        if (!isValidConnectionPair(requesterId, receiverId)) {
-            return false;
+    public synchronized OperationResult sendConnectionRequest(String requesterId, String receiverId) {
+        String pairError = connectionPairError(requesterId, receiverId);
+        if (pairError != null) {
+            return OperationResult.fail(pairError);
         }
-        if (connectionDao.getConnectionBetween(requesterId, receiverId) != null) {
-            return false;
+        com.networkfinder.model.Connection existing = connectionDao.getConnectionBetween(requesterId, receiverId);
+        if (existing != null) {
+            return OperationResult.fail(existing.getStatus() == ConnectionStatus.ACCEPTED
+                    ? "You are already connected to " + nameOf(receiverId) + "."
+                    : "A connection request is already pending with this student.");
         }
-        return connectionDao.addConnection(requesterId, receiverId, ConnectionStatus.PENDING);
+        boolean dbSuccess = connectionDao.addConnection(requesterId, receiverId, ConnectionStatus.PENDING);
+        if (!dbSuccess) {
+            return OperationResult.fail("Could not send the connection request. Please try again.");
+        }
+        return OperationResult.ok("Connection request sent to " + nameOf(receiverId) + ".");
     }
 
-    private boolean isValidConnectionPair(String id1, String id2) {
-        if (id1 == null || id2 == null || id1.equals(id2)) {
-            return false;
+    private String connectionPairError(String id1, String id2) {
+        if (id1 == null || id2 == null) {
+            return "Select two students.";
+        }
+        if (id1.equals(id2)) {
+            return "Select two different students.";
         }
         User user1 = userDao.getUserById(id1);
         User user2 = userDao.getUserById(id2);
-        if (user1 == null || user2 == null) {
-            return false;
+        if (user1 == null) {
+            return "No student account was found for " + id1 + ".";
         }
-        return user1.getRole() == Role.STUDENT && user1.getVerificationStatus() == VerificationStatus.APPROVED
-                && user2.getRole() == Role.STUDENT && user2.getVerificationStatus() == VerificationStatus.APPROVED;
+        if (user2 == null) {
+            return "No student account was found for " + id2 + ".";
+        }
+        if (user1.getRole() == Role.ADMIN || user2.getRole() == Role.ADMIN) {
+            return "Administrator accounts cannot be connected.";
+        }
+        if (user1.getVerificationStatus() != VerificationStatus.APPROVED
+                || user2.getVerificationStatus() != VerificationStatus.APPROVED) {
+            return "Both students must be verified before connecting.";
+        }
+        return null;
     }
 
-    public synchronized boolean acceptConnectionRequest(String requesterId, String receiverId) {
+    private String nameOf(String studentId) {
+        User user = userDao.getUserById(studentId);
+        return user != null ? user.getFullName() : studentId;
+    }
+
+    public synchronized OperationResult acceptConnectionRequest(String requesterId, String receiverId) {
         boolean ok = connectionDao.updateConnectionStatus(requesterId, receiverId, ConnectionStatus.ACCEPTED);
-        if (ok) {
-            graph.addEdge(requesterId, receiverId);
+        if (!ok) {
+            return OperationResult.fail("No pending request was found between these students.");
         }
-        return ok;
+        graph.addEdge(requesterId, receiverId);
+        return OperationResult.ok("Request accepted - you are now connected.");
     }
 
-    public synchronized boolean declineConnectionRequest(String requesterId, String receiverId) {
-        return connectionDao.removeConnection(requesterId, receiverId);
+    public synchronized OperationResult declineConnectionRequest(String requesterId, String receiverId) {
+        boolean ok = connectionDao.removeConnection(requesterId, receiverId);
+        if (!ok) {
+            return OperationResult.fail("No pending request was found between these students.");
+        }
+        return OperationResult.ok("Request declined.");
     }
 
     public com.networkfinder.model.Connection getConnectionBetween(String u, String v) {
@@ -164,9 +203,9 @@ public class NetworkService {
      * {@link ValidationException} with a presentable message. Returns false
      * only for storage-level failure.
      */
-    public synchronized boolean adminAddStudent(String studentId, String firstName, String middleInitial,
-                                                String surname, String suffix, String course,
-                                                String yearLevel, String section) throws ValidationException {
+    public synchronized OperationResult adminAddStudent(String studentId, String firstName, String middleInitial,
+                                                        String surname, String suffix, String course,
+                                                        String yearLevel, String section) throws ValidationException {
         String idError = InputValidator.checkStudentId(studentId);
         if (idError != null) {
             throw new ValidationException(idError);
@@ -245,20 +284,20 @@ public class NetworkService {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
+            return OperationResult.fail("Could not save the student. Please try again.");
         }
         if (!created) {
-            return false;
+            return OperationResult.fail("Could not save the student. Please try again.");
         }
 
         StudentNode node = new StudentNode(cleanId, composedName, profile);
         graph.addVertex(node);
-        return true;
+        return OperationResult.ok("Student created with default password password123.");
     }
 
-    public synchronized boolean adminEditStudent(String studentId, String firstName, String middleInitial,
-                                                 String surname, String suffix, String course,
-                                                 String yearLevel, String section) throws ValidationException {
+    public synchronized OperationResult adminEditStudent(String studentId, String firstName, String middleInitial,
+                                                         String surname, String suffix, String course,
+                                                         String yearLevel, String section) throws ValidationException {
         String firstNameError = InputValidator.checkFirstName(firstName);
         if (firstNameError != null) {
             throw new ValidationException(firstNameError);
@@ -285,7 +324,9 @@ public class NetworkService {
         }
 
         User user = userDao.getUserById(studentId);
-        if (user == null) return false;
+        if (user == null) {
+            return OperationResult.fail("No student account was found for " + studentId + ".");
+        }
 
         String cleanFirst = firstName.trim();
         String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
@@ -310,21 +351,27 @@ public class NetworkService {
             existingNode.setFullName(composedName);
             existingNode.setProfile(profile);
         }
-        return true;
+        return OperationResult.ok("Student profile updated.");
     }
 
-    public synchronized boolean adminDeleteStudent(String studentId) {
+    public synchronized OperationResult adminDeleteStudent(String studentId) {
         if (studentId == null) {
-            return false;
+            return OperationResult.fail("Select a student to delete.");
         }
         User user = userDao.getUserById(studentId);
-        if (user == null || user.getRole() == Role.ADMIN) {
-            return false;
+        if (user == null) {
+            return OperationResult.fail("No student account was found for " + studentId + ".");
+        }
+        if (user.getRole() == Role.ADMIN) {
+            return OperationResult.fail("Administrator accounts cannot be deleted.");
         }
         boolean deleted = userDao.deleteUser(studentId);
+        if (!deleted) {
+            return OperationResult.fail("Could not delete the student. Please try again.");
+        }
         profileDao.deleteProfile(studentId);
         graph.removeVertex(studentId);
-        return deleted;
+        return OperationResult.ok("Student deleted.");
     }
 
     /**
@@ -333,19 +380,51 @@ public class NetworkService {
      * by the shared rules. Throws {@link ValidationException} for bad input,
      * returns false only for unknown targets/storage failure.
      */
-    public synchronized boolean adminResetPassword(String studentId, String newPassword) throws ValidationException {
+    public synchronized OperationResult adminResetPassword(String studentId, String newPassword) throws ValidationException {
         String passwordError = InputValidator.checkPassword(newPassword);
         if (passwordError != null) {
             throw new ValidationException(passwordError);
         }
         if (studentId == null) {
-            return false;
+            return OperationResult.fail("Select an account to reset.");
         }
         User user = userDao.getUserById(studentId.trim());
-        if (user == null || user.getRole() == Role.ADMIN) {
-            return false;
+        if (user == null) {
+            return OperationResult.fail("No student account was found for this ID.");
         }
-        return userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(newPassword));
+        if (user.getRole() == Role.ADMIN) {
+            return OperationResult.fail("Administrator accounts cannot be reset here.");
+        }
+        boolean updated = userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(newPassword));
+        if (!updated) {
+            return OperationResult.fail("Could not update the password. Please try again.");
+        }
+        return OperationResult.ok("Password reset - the new password can be used to log in.");
+    }
+
+    // ==================================================
+    // READ FACADE - views must read through the service, not build DAOs
+    // ==================================================
+
+    public StudentProfile getStudentProfile(String studentId) {
+        return profileDao.getProfile(studentId);
+    }
+
+    public List<User> getAllUsers() {
+        return userDao.getAllUsers();
+    }
+
+    public List<StudentProfile> getAllProfiles() {
+        return profileDao.getAllProfiles();
+    }
+
+    public void saveStudentProfile(String studentId, StudentProfile profile) {
+        profileDao.saveOrUpdateProfile(profile);
+        userDao.updateProfileCompleted(studentId, true);
+        StudentNode node = graph.getNode(studentId);
+        if (node != null) {
+            node.setProfile(profile);
+        }
     }
 
     public synchronized void adminResetDataset() {

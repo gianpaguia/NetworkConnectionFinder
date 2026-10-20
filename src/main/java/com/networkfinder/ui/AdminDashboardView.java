@@ -1,12 +1,11 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
 import com.networkfinder.service.InputValidator;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.OperationResult;
 import com.networkfinder.service.ValidationException;
 import com.networkfinder.service.VerificationService;
 import javafx.beans.property.SimpleStringProperty;
@@ -26,8 +25,6 @@ import java.util.List;
 
 public class AdminDashboardView extends BorderPane {
     private final VerificationService verificationService = new VerificationService();
-    private final UserDao userDao = new UserDao();
-    private final ProfileDao profileDao = new ProfileDao();
     private final NetworkService networkService = NetworkService.getInstance();
 
     private final StackPane contentArea = new StackPane();
@@ -172,7 +169,7 @@ public class AdminDashboardView extends BorderPane {
 
             TableColumn<User, String> courseCol = new TableColumn<>("Course");
             courseCol.setCellValueFactory(data -> {
-                StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
+                StudentProfile p = networkService.getStudentProfile(data.getValue().getStudentId());
                 return new SimpleStringProperty(p != null && p.getCourse() != null ? p.getCourse() : "Pending Setup");
             });
 
@@ -258,7 +255,7 @@ public class AdminDashboardView extends BorderPane {
         grid.setHgap(16);
         grid.setVgap(10);
 
-        StudentProfile profile = profileDao.getProfile(user.getStudentId());
+        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
 
         addRow(grid, 0, "Name:", user.getFullName());
         addRow(grid, 1, "Student ID:", user.getStudentId());
@@ -389,13 +386,13 @@ public class AdminDashboardView extends BorderPane {
 
         TableColumn<User, String> courseCol = new TableColumn<>("Course");
         courseCol.setCellValueFactory(data -> {
-            StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
+            StudentProfile p = networkService.getStudentProfile(data.getValue().getStudentId());
             return new SimpleStringProperty(p != null && p.getCourse() != null ? p.getCourse() : "-");
         });
 
         TableColumn<User, String> secCol = new TableColumn<>("Section");
         secCol.setCellValueFactory(data -> {
-            StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
+            StudentProfile p = networkService.getStudentProfile(data.getValue().getStudentId());
             return new SimpleStringProperty(p != null && p.getSection() != null ? p.getSection() : "-");
         });
 
@@ -473,7 +470,7 @@ public class AdminDashboardView extends BorderPane {
         });
 
         table.getColumns().addAll(idCol, nameCol, courseCol, secCol, statusCol, actionCol);
-        table.setItems(FXCollections.observableArrayList(userDao.getAllUsers()));
+        table.setItems(FXCollections.observableArrayList(networkService.getAllUsers()));
         table.setPrefHeight(450);
 
         mainBox.getChildren().addAll(topRow, table);
@@ -481,7 +478,7 @@ public class AdminDashboardView extends BorderPane {
     }
 
     private void showAddStudentDialog() {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<OperationResult> dialog = new Dialog<>();
         dialog.setTitle("Add New Student");
         dialog.setHeaderText("Create and instantly verify a new student node in the network graph");
         UiDialogs.styleDialogPane(dialog.getDialogPane());
@@ -559,16 +556,18 @@ public class AdminDashboardView extends BorderPane {
                         return networkService.adminAddStudent(sId, sFirst, sMiddle, sSurname, sSuffix, sCourse, sYear, sSec);
                     } catch (ValidationException ve) {
                         validationError.set(ve.getMessage());
-                        return false;
+                        return null;
                     }
                 }
             }
-            return false;
+            return null;
         });
 
-        dialog.showAndWait().ifPresent(success -> {
-            if (success) {
+        dialog.showAndWait().ifPresent(result -> {
+            if (result != null && result.isOk()) {
                 showAccountsScreen();
+            } else if (result != null && result.getMessage() != null && !result.getMessage().isBlank()) {
+                UiDialogs.showError(result.getMessage());
             } else if (validationError.get() != null) {
                 UiDialogs.showError(validationError.get());
             } else {
@@ -578,7 +577,7 @@ public class AdminDashboardView extends BorderPane {
     }
 
     private void showEditStudentDialog(User user) {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<OperationResult> dialog = new Dialog<>();
         dialog.setTitle("Edit Student - " + user.getStudentId());
         dialog.setHeaderText("Modify student information and academic attributes");
         UiDialogs.styleDialogPane(dialog.getDialogPane());
@@ -613,7 +612,7 @@ public class AdminDashboardView extends BorderPane {
         suffixField.setPromptText("1-2 letters (e.g. Jr)");
         suffixField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
-        StudentProfile profile = profileDao.getProfile(user.getStudentId());
+        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
         String currentCourse = (profile != null && profile.getCourse() != null) ? profile.getCourse() : "Bachelor of Science in Information Technology";
         String currentYear = (profile != null && profile.getYearLevel() != null) ? profile.getYearLevel() : "1st Year";
         String currentSec = (profile != null && profile.getSection() != null) ? profile.getSection() : "";
@@ -659,16 +658,18 @@ public class AdminDashboardView extends BorderPane {
                         return networkService.adminEditStudent(user.getStudentId(), sFirst, sMiddle, sSurname, sSuffix, sCourse, sYear, sSec);
                     } catch (ValidationException ve) {
                         validationError.set(ve.getMessage());
-                        return false;
+                        return null;
                     }
                 }
             }
-            return false;
+            return null;
         });
 
-        dialog.showAndWait().ifPresent(success -> {
-            if (success) {
+        dialog.showAndWait().ifPresent(result -> {
+            if (result != null && result.isOk()) {
                 showAccountsScreen();
+            } else if (result != null && result.getMessage() != null && !result.getMessage().isBlank()) {
+                UiDialogs.showError(result.getMessage());
             } else if (validationError.get() != null) {
                 UiDialogs.showError(validationError.get());
             } else {
@@ -683,7 +684,7 @@ public class AdminDashboardView extends BorderPane {
      * surfaced through a themed error dialog.
      */
     private void showResetPasswordDialog(User user) {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<OperationResult> dialog = new Dialog<>();
         dialog.setTitle("Reset Password - " + user.getStudentId());
         dialog.setHeaderText("Set a temporary password for " + user.getFullName());
         UiDialogs.styleDialogPane(dialog.getDialogPane());
@@ -715,15 +716,17 @@ public class AdminDashboardView extends BorderPane {
                     return networkService.adminResetPassword(user.getStudentId(), passwordValue.getValue());
                 } catch (ValidationException ve) {
                     validationError.set(ve.getMessage());
-                    return false;
+                    return null;
                 }
             }
-            return false;
+            return null;
         });
 
-        dialog.showAndWait().ifPresent(success -> {
-            if (success) {
+        dialog.showAndWait().ifPresent(result -> {
+            if (result != null && result.isOk()) {
                 UiDialogs.showSuccess("The password for " + user.getStudentId() + " was reset. Sign-in with the temporary password now works.");
+            } else if (result != null && result.getMessage() != null && !result.getMessage().isBlank()) {
+                UiDialogs.showError(result.getMessage());
             } else if (validationError.get() != null) {
                 UiDialogs.showError(validationError.get());
             } else {
@@ -754,8 +757,11 @@ public class AdminDashboardView extends BorderPane {
 
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                if (!networkService.adminDeleteStudent(user.getStudentId())) {
-                    UiDialogs.showError("Could not delete this student. Administrator accounts cannot be removed here.");
+                OperationResult res = networkService.adminDeleteStudent(user.getStudentId());
+                if (!res.isOk()) {
+                    UiDialogs.showError(res.getMessage());
+                } else {
+                    UiDialogs.showSuccess(res.getMessage());
                 }
                 showAccountsScreen();
             }
@@ -804,8 +810,9 @@ public class AdminDashboardView extends BorderPane {
             com.networkfinder.dsa.StudentNode n1 = s1Combo.getValue();
             com.networkfinder.dsa.StudentNode n2 = s2Combo.getValue();
             if (n1 != null && n2 != null && !n1.getStudentId().equals(n2.getStudentId())) {
-                if (!networkService.addConnection(n1.getStudentId(), n2.getStudentId())) {
-                    UiDialogs.showError("Could not create the edge. Both students must be verified and distinct.");
+                OperationResult res = networkService.addConnection(n1.getStudentId(), n2.getStudentId());
+                if (!res.isOk()) {
+                    UiDialogs.showError(res.getMessage());
                     return;
                 }
                 showConnectionsManagerScreen();
@@ -850,10 +857,11 @@ public class AdminDashboardView extends BorderPane {
                 delBtn.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 11px;");
                 delBtn.setOnAction(e -> {
                     String[] pair = getTableView().getItems().get(getIndex());
-                    if (networkService.removeConnection(pair[0], pair[1])) {
-                        showConnectionsManagerScreen();
+                    OperationResult res = networkService.removeConnection(pair[0], pair[1]);
+                    if (!res.isOk()) {
+                        UiDialogs.showError(res.getMessage());
                     } else {
-                        UiDialogs.showError("Could not remove this connection.");
+                        showConnectionsManagerScreen();
                     }
                 });
             }

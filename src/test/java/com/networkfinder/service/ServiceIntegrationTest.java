@@ -125,7 +125,7 @@ public class ServiceIntegrationTest {
         assertFalse(netService.hasConnection(s1, s7));
 
         // 1. Juan sends connection request to Joshua
-        assertTrue(netService.sendConnectionRequest(s1, s7));
+        assertTrue(netService.sendConnectionRequest(s1, s7).isOk());
         assertFalse(netService.hasConnection(s1, s7)); // Not connected until accepted!
 
         // 2. Joshua sees incoming request from Juan
@@ -133,7 +133,7 @@ public class ServiceIntegrationTest {
         assertTrue(incoming.stream().anyMatch(c -> c.getRequesterId().equals(s1)));
 
         // 3. Joshua accepts connection request
-        assertTrue(netService.acceptConnectionRequest(s1, s7));
+        assertTrue(netService.acceptConnectionRequest(s1, s7).isOk());
         assertTrue(netService.hasConnection(s1, s7)); // Now active edge in graph!
         assertTrue(netService.getGraph().hasEdge(s1, s7));
 
@@ -143,7 +143,7 @@ public class ServiceIntegrationTest {
         assertEquals(1, path.getDegreesOfSeparation());
 
         // 4. Cleanup
-        assertTrue(netService.removeConnection(s1, s7));
+        assertTrue(netService.removeConnection(s1, s7).isOk());
         assertFalse(netService.hasConnection(s1, s7));
     }
 
@@ -153,21 +153,21 @@ public class ServiceIntegrationTest {
 
         // 1. Admin adds student
         String testStudentId = uniqueTestId();
-        assertTrue(netService.adminAddStudent(testStudentId, "Admin", null, "Added Student", null, "BSIT", "1st Year", "BSIT 1A"));
+        assertTrue(netService.adminAddStudent(testStudentId, "Admin", null, "Added Student", null, "BSIT", "1st Year", "BSIT 1A").isOk());
         assertTrue(netService.getGraph().containsVertex(testStudentId));
         assertEquals("Admin Added Student", netService.getGraph().getNode(testStudentId).getFullName());
 
         // 2. Admin edits student
-        assertTrue(netService.adminEditStudent(testStudentId, "Renamed", null, "Student", null, "BSCS", "2nd Year", "BSCS 2A"));
+        assertTrue(netService.adminEditStudent(testStudentId, "Renamed", null, "Student", null, "BSCS", "2nd Year", "BSCS 2A").isOk());
         assertEquals("Renamed Student", netService.getGraph().getNode(testStudentId).getFullName());
         assertEquals("BSCS 2A", netService.getGraph().getNode(testStudentId).getProfile().getSection());
 
         // 3. Admin adds connection between test student and Juan
-        assertTrue(netService.addConnection(testStudentId, "2026-10001"));
+        assertTrue(netService.addConnection(testStudentId, "2026-10001").isOk());
         assertTrue(netService.hasConnection(testStudentId, "2026-10001"));
 
         // 4. Admin deletes student
-        assertTrue(netService.adminDeleteStudent(testStudentId));
+        assertTrue(netService.adminDeleteStudent(testStudentId).isOk());
         assertFalse(netService.getGraph().containsVertex(testStudentId));
         assertFalse(netService.hasConnection(testStudentId, "2026-10001"));
 
@@ -276,10 +276,10 @@ public class ServiceIntegrationTest {
                 netService.adminResetPassword(testId, "short"));
 
         // Administrator accounts can never be reset this way
-        assertFalse(netService.adminResetPassword("admin", "newadminpass1"));
+        assertFalse(netService.adminResetPassword("admin", "newadminpass1").isOk());
 
         // Successful reset: temporary password works, old one is dead
-        assertTrue(netService.adminResetPassword(testId, "tempNew99"));
+        assertTrue(netService.adminResetPassword(testId, "tempNew99").isOk());
         assertEquals(AuthService.AuthStatus.SUCCESS,
                 authService.authenticate(testId, "tempNew99").getStatus());
         assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
