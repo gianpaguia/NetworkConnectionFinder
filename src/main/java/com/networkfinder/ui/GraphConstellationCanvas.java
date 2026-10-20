@@ -19,7 +19,6 @@ public class GraphConstellationCanvas extends Pane {
     private static final Color ACCENT_VIOLET = Color.web("#A855F7");
     private static final Color ACCENT_MAGENTA = Color.web("#D946EF");
     private static final Color TEXT_WHITE = Color.web("#FFFFFF");
-    private static final Color TEXT_MUTED = Color.web("#A2A2AE");
 
     private final Canvas canvas = new Canvas();
     private final List<double[]> nodes = new ArrayList<>();

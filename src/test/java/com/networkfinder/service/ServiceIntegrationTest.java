@@ -2,7 +2,6 @@ package com.networkfinder.service;
 
 import com.networkfinder.database.DataSeeder;
 import com.networkfinder.database.DatabaseManager;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.dsa.MatchFilter;
 import com.networkfinder.dsa.MatchResult;
 import com.networkfinder.dsa.PathResult;

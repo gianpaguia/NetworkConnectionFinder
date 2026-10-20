@@ -182,8 +182,8 @@ public class StudentDashboardView extends BorderPane {
             String query = (newVal == null) ? "" : newVal.toLowerCase().trim();
             tileGrid.getChildren().clear();
             for (Button t : allTiles) {
-                Label tTitle = (Label) ((HBox) t.getGraphic().getChildren().get(1)).getChildren().get(0);
-                Label tDesc = (Label) ((HBox) t.getGraphic().getChildren().get(1)).getChildren().get(1);
+                Label tTitle = (Label) ((VBox) ((HBox) t.getGraphic()).getChildren().get(1)).getChildren().get(0);
+                Label tDesc = (Label) ((VBox) ((HBox) t.getGraphic()).getChildren().get(1)).getChildren().get(1);
                 if (query.isEmpty() || tTitle.getText().toLowerCase().contains(query) || tDesc.getText().toLowerCase().contains(query)) {
                     tileGrid.getChildren().add(t);
                 }

@@ -2,7 +2,6 @@ package com.networkfinder.ui;
 
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
-import com.networkfinder.model.VerificationStatus;
 import com.networkfinder.service.NetworkService;
 import com.networkfinder.service.OperationResult;
 import com.networkfinder.service.VerificationService;
