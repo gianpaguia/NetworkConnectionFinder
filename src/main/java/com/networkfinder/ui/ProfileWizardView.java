@@ -1,10 +1,9 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.OperationResult;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -19,8 +18,6 @@ import java.util.List;
 
 public class ProfileWizardView extends StackPane {
     private final User user;
-    private final ProfileDao profileDao = new ProfileDao();
-    private final UserDao userDao = new UserDao();
 
     private int currentStep = 1;
 
@@ -205,6 +202,7 @@ public class ProfileWizardView extends StackPane {
         navBox.setAlignment(Pos.CENTER_RIGHT);
         Button continueBtn = new Button("Continue");
         continueBtn.getStyleClass().add("button-primary");
+        continueBtn.setDefaultButton(true);
         continueBtn.setOnAction(e -> {
             currentStep = 2;
             renderStep();
@@ -255,9 +253,16 @@ public class ProfileWizardView extends StackPane {
 
         Button continueBtn = new Button("Continue");
         continueBtn.getStyleClass().add("button-primary");
+        continueBtn.setDefaultButton(true);
         continueBtn.setOnAction(e -> {
             if (enteredSection.trim().isEmpty()) {
                 errorLabel.setText("Please enter your section (e.g. BSIT 1A).");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
+            if (enteredSection.trim().length() > 50) {
+                errorLabel.setText("Section must be 50 characters or fewer.");
                 errorLabel.setVisible(true);
                 errorLabel.setManaged(true);
                 return;
@@ -331,6 +336,7 @@ public class ProfileWizardView extends StackPane {
 
         Button continueBtn = new Button("Continue");
         continueBtn.getStyleClass().add("button-primary");
+        continueBtn.setDefaultButton(true);
         continueBtn.setOnAction(e -> {
             if (selectedSubjects.size() < 2) {
                 errorLabel.setText("Please select at least 2 subjects.");
@@ -442,18 +448,27 @@ public class ProfileWizardView extends StackPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        Label errorLabel = new Label();
+        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 13px;");
+        errorLabel.setVisible(false);
+        errorLabel.setManaged(false);
+
         Button continueBtn = new Button("Continue");
         continueBtn.getStyleClass().add("button-primary");
+        continueBtn.setDefaultButton(true);
         continueBtn.setOnAction(e -> {
             if (selectedHabits.isEmpty()) {
-                selectedHabits.add("Reviewing Lessons");
+                errorLabel.setText("Please select at least one study habit.");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
             }
             currentStep = 5;
             renderStep();
         });
 
         navBox.getChildren().addAll(backBtn, spacer, continueBtn);
-        box.getChildren().addAll(heading, sub1, habitsGrid, groupSizeBox, navBox);
+        box.getChildren().addAll(heading, sub1, habitsGrid, groupSizeBox, errorLabel, navBox);
         stepContentContainer.getChildren().setAll(box);
     }
 
@@ -498,8 +513,15 @@ public class ProfileWizardView extends StackPane {
 
         TextField otherField = new TextField(enteredOtherInterest);
         otherField.setPromptText("Enter an interest");
+        otherField.setTextFormatter(new TextFormatter<>(change ->
+                change.getControlNewText().length() <= 100 ? change : null));
         otherField.textProperty().addListener((obs, old, val) -> enteredOtherInterest = val);
         otherBox.getChildren().addAll(otherLabel, otherField);
+
+        Label errorLabel = new Label();
+        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 13px;");
+        errorLabel.setVisible(false);
+        errorLabel.setManaged(false);
 
         // Buttons
         HBox navBox = new HBox(12);
@@ -515,25 +537,41 @@ public class ProfileWizardView extends StackPane {
 
         Button finishBtn = new Button("Finish Profile");
         finishBtn.getStyleClass().add("button-accent");
+        finishBtn.setDefaultButton(true);
         finishBtn.setOnAction(e -> {
+            String savedSection = enteredSection == null ? "" : enteredSection.trim();
+            String savedOther = enteredOtherInterest == null ? "" : enteredOtherInterest.trim();
+
+            if (!savedOther.isEmpty() && selectedInterests.contains(savedOther)) {
+                errorLabel.setText("That interest is already selected above.");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
+
             // Save profile
             StudentProfile profile = new StudentProfile(
                     user.getStudentId(),
                     selectedCourse,
                     selectedYear,
-                    enteredSection,
+                    savedSection,
                     selectedSubjects,
                     selectedHabits,
                     selectedGroupSize,
                     selectedInterests,
-                    enteredOtherInterest
+                    savedOther
             );
-            profileDao.saveOrUpdateProfile(profile);
-            userDao.updateProfileCompleted(user.getStudentId(), true);
+            // Save profile through the service layer
+            OperationResult saveResult = NetworkService.getInstance().saveStudentProfile(user.getStudentId(), profile);
+            if (!saveResult.isOk()) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Profile Not Saved");
+                alert.setHeaderText(null);
+                alert.setContentText(saveResult.getMessage());
+                alert.showAndWait();
+                return;
+            }
             user.setProfileCompleted(true);
-
-            // Synchronize Graph Node
-            NetworkService.getInstance().reloadGraph();
 
             // Navigate to Screen 12
             ScreenNavigator.showProfileSummary(user, profile);

@@ -13,7 +13,7 @@
     -fx-raised-hover: #2B2B34;
     -fx-ink: #FFFFFF;
     -fx-ink-soft: #A2A2AE;
-    -fx-ink-subtle: #737380;
+    -fx-ink-subtle: #8B8B97;
 
     /* Fluent Accents */
     -fx-accent: #60CDFF;
@@ -203,7 +203,7 @@
 }
 
 .fluent-status-sub {
-    -fx-font-size: 10px;
+    -fx-font-size: 11px;
     -fx-font-weight: 500;
     -fx-text-fill: -fx-ink-soft;
 }
@@ -222,7 +222,7 @@
     -fx-padding: 8px 14px;
     -fx-font-size: 13px;
     -fx-text-fill: #FFFFFF;
-    -fx-prompt-text-fill: #737380;
+    -fx-prompt-text-fill: -fx-ink-subtle;
     -fx-pref-width: 380px;
     -fx-max-width: 480px;
 }
@@ -436,6 +436,22 @@
 .button-link:hover {
     -fx-text-fill: -fx-accent-hover;
     -fx-underline: true;
+}
+
+/* Keyboard focus visibility — accent ring on every interactive styled control */
+.button-primary:focused,
+.button-secondary:focused,
+.button-danger:focused,
+.button-accent:focused,
+.button-link:focused,
+.window-back-btn:focused,
+.nav-button:focused,
+.selectable-card:focused,
+.selectable-card-selected:focused,
+.chip:focused,
+.chip-selected:focused {
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1.5px;
 }
 
 /* Selectable Cards & Chips */
@@ -745,4 +761,26 @@
 .scroll-bar .increment-button, .scroll-bar .decrement-button {
     -fx-background-color: transparent;
     -fx-padding: 0;
+}
+
+/* Text areas (admin adjacency-list dump) — match the dark surface */
+.text-area {
+    -fx-background-color: rgba(20, 20, 25, 0.90);
+    -fx-background-radius: 6px;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 6px;
+    -fx-text-fill: #E2E8F0;
+    -fx-font-size: 13px;
+}
+
+.text-area .content {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6px;
+    -fx-padding: 10px 12px;
+}
+
+.text-area:focused {
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1.5px;
 }

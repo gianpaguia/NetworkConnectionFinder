@@ -62,7 +62,9 @@ public class RegisterView extends StackPane {
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
         idField.setPromptText("Enter Student ID (e.g. 2026-12345)");
-        idBox.getChildren().addAll(idLabel, idField);
+        Label idHelper = new Label("Letters, digits, dots, dashes or underscores (max 64 characters).");
+        idHelper.getStyleClass().add("helper-text");
+        idBox.getChildren().addAll(idLabel, idField, idHelper);
 
         VBox nameBox = new VBox(4);
         Label nameLabel = new Label("Full Name");
@@ -76,7 +78,9 @@ public class RegisterView extends StackPane {
         passLabel.getStyleClass().add("field-label");
         PasswordField passField = new PasswordField();
         passField.setPromptText("Create Password");
-        passBox.getChildren().addAll(passLabel, passField);
+        Label passHelper = new Label("At least 8 characters.");
+        passHelper.getStyleClass().add("helper-text");
+        passBox.getChildren().addAll(passLabel, passField, passHelper);
 
         VBox confirmPassBox = new VBox(4);
         Label confirmPassLabel = new Label("Confirm Password");
@@ -105,7 +109,7 @@ public class RegisterView extends StackPane {
         Label uploadText = new Label("Upload Student ID");
         uploadText.setStyle("-fx-font-size: 14px; -fx-font-weight: 600; -fx-text-fill: -fx-green;");
 
-        Label formatText = new Label("JPG or PNG");
+        Label formatText = new Label("JPG or PNG · max 5 MB");
         formatText.getStyleClass().add("helper-text");
 
         ImageView previewImage = new ImageView();
@@ -153,6 +157,20 @@ public class RegisterView extends StackPane {
 
             if (studentId.isEmpty() || name.isEmpty() || pass.isEmpty()) {
                 errorLabel.setText("Please fill in all required fields.");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
+
+            if (!studentId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
+                errorLabel.setText("Invalid Student ID. Use letters, digits, dots, dashes or underscores only (e.g. 2026-12345).");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
+
+            if (pass.length() < 8) {
+                errorLabel.setText("Password must be at least 8 characters long.");
                 errorLabel.setVisible(true);
                 errorLabel.setManaged(true);
                 return;

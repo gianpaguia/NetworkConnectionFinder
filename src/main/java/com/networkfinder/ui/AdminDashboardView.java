@@ -1,11 +1,10 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.OperationResult;
 import com.networkfinder.service.VerificationService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -19,12 +18,12 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class AdminDashboardView extends BorderPane {
     private final VerificationService verificationService = new VerificationService();
-    private final UserDao userDao = new UserDao();
-    private final ProfileDao profileDao = new ProfileDao();
     private final NetworkService networkService = NetworkService.getInstance();
 
     private final StackPane contentArea = new StackPane();
@@ -34,7 +33,12 @@ public class AdminDashboardView extends BorderPane {
         getStyleClass().add("fluent-root-pane");
 
         setLeft(buildSidebar());
-        setCenter(contentArea);
+
+        // Scrollable center so resize never clips admin screens
+        ScrollPane centerScroll = new ScrollPane(contentArea);
+        centerScroll.setFitToWidth(true);
+        centerScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        setCenter(centerScroll);
 
         showVerificationQueueScreen();
     }
@@ -171,9 +175,10 @@ public class AdminDashboardView extends BorderPane {
             nameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getFullName()));
 
             TableColumn<User, String> courseCol = new TableColumn<>("Course");
+            Map<String, String[]> profileColumns = preloadProfileColumns();
             courseCol.setCellValueFactory(data -> {
-                StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
-                return new SimpleStringProperty(p != null && p.getCourse() != null ? p.getCourse() : "Pending Setup");
+                String[] cols = profileColumns.get(data.getValue().getStudentId());
+                return new SimpleStringProperty(cols != null && cols[0] != null ? cols[0] : "Pending Setup");
             });
 
             TableColumn<User, String> statusCol = new TableColumn<>("Status");
@@ -258,7 +263,7 @@ public class AdminDashboardView extends BorderPane {
         grid.setHgap(16);
         grid.setVgap(10);
 
-        StudentProfile profile = profileDao.getProfile(user.getStudentId());
+        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
 
         addRow(grid, 0, "Name:", user.getFullName());
         addRow(grid, 1, "Student ID:", user.getStudentId());
@@ -279,16 +284,24 @@ public class AdminDashboardView extends BorderPane {
         Button approveBtn = new Button("✓ APPROVE");
         approveBtn.getStyleClass().add("button-primary");
         approveBtn.setOnAction(e -> {
-            verificationService.approveStudent(user.getStudentId());
-            networkService.reloadGraph();
-            showVerificationQueueScreen();
+            OperationResult res = verificationService.approveStudent(user.getStudentId());
+            if (res.isOk()) {
+                networkService.reloadGraph();
+                showVerificationQueueScreen();
+            } else {
+                showErrorAlert("Verification Failed", res.getMessage());
+            }
         });
 
         Button rejectBtn = new Button("✕ REJECT");
         rejectBtn.getStyleClass().add("button-danger");
         rejectBtn.setOnAction(e -> {
-            verificationService.rejectStudent(user.getStudentId());
-            showVerificationQueueScreen();
+            OperationResult res = verificationService.rejectStudent(user.getStudentId());
+            if (res.isOk()) {
+                showVerificationQueueScreen();
+            } else {
+                showErrorAlert("Verification Failed", res.getMessage());
+            }
         });
 
         buttonBox.getChildren().addAll(approveBtn, rejectBtn);
@@ -306,7 +319,7 @@ public class AdminDashboardView extends BorderPane {
         StackPane imgContainer = new StackPane();
         imgContainer.setStyle("-fx-background-color: -fx-sage-tint; -fx-border-color: -fx-border; -fx-border-radius: 8; -fx-background-radius: 8;");
         imgContainer.setMinHeight(280);
-        imgContainer.setMinWidth(420);
+        imgContainer.setMinWidth(360);
 
         ImageView idImageView = new ImageView();
         idImageView.setFitWidth(440);
@@ -382,15 +395,15 @@ public class AdminDashboardView extends BorderPane {
         nameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getFullName()));
 
         TableColumn<User, String> courseCol = new TableColumn<>("Course");
-        courseCol.setCellValueFactory(data -> {
-            StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
-            return new SimpleStringProperty(p != null && p.getCourse() != null ? p.getCourse() : "-");
-        });
-
         TableColumn<User, String> secCol = new TableColumn<>("Section");
+        Map<String, String[]> profileColumns = preloadProfileColumns();
+        courseCol.setCellValueFactory(data -> {
+            String[] cols = profileColumns.get(data.getValue().getStudentId());
+            return new SimpleStringProperty(cols != null && cols[0] != null ? cols[0] : "-");
+        });
         secCol.setCellValueFactory(data -> {
-            StudentProfile p = profileDao.getProfile(data.getValue().getStudentId());
-            return new SimpleStringProperty(p != null && p.getSection() != null ? p.getSection() : "-");
+            String[] cols = profileColumns.get(data.getValue().getStudentId());
+            return new SimpleStringProperty(cols != null && cols[1] != null ? cols[1] : "-");
         });
 
         TableColumn<User, String> statusCol = new TableColumn<>("Verification");
@@ -459,7 +472,7 @@ public class AdminDashboardView extends BorderPane {
         });
 
         table.getColumns().addAll(idCol, nameCol, courseCol, secCol, statusCol, actionCol);
-        table.setItems(FXCollections.observableArrayList(userDao.getAllUsers()));
+        table.setItems(FXCollections.observableArrayList(networkService.getAllUsers()));
         table.setPrefHeight(450);
 
         mainBox.getChildren().addAll(topRow, table);
@@ -467,7 +480,7 @@ public class AdminDashboardView extends BorderPane {
     }
 
     private void showAddStudentDialog() {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<OperationResult> dialog = new Dialog<>();
         dialog.setTitle("Add New Student");
         dialog.setHeaderText("Create and instantly verify a new student node in the network graph");
 
@@ -517,22 +530,34 @@ public class AdminDashboardView extends BorderPane {
                 String sYear = yearCombo.getValue();
                 String sSec = sectionField.getText().trim();
 
-                if (!sId.isEmpty() && !sName.isEmpty()) {
-                    return networkService.adminAddStudent(sId, sName, sCourse, sYear, sSec);
+                if (sId.isEmpty() || sName.isEmpty()) {
+                    showErrorAlert("Missing Fields", "Student ID and Full Name are required.");
+                    return null;
                 }
+                if (com.networkfinder.service.AuthService.validateStudentId(sId) == null) {
+                    showErrorAlert("Invalid Student ID",
+                            "Student ID must start with a letter or number and may only contain letters, numbers, dots, dashes or underscores (max 64 characters).");
+                    return null;
+                }
+                if (sName.length() > 100 || sSec.length() > 100) {
+                    showErrorAlert("Input Too Long", "Full Name and Section must be 100 characters or fewer.");
+                    return null;
+                }
+                return networkService.adminAddStudent(sId, sName, sCourse, sYear, sSec);
             }
-            return false;
+            return null;
         });
 
-        dialog.showAndWait().ifPresent(success -> {
-            if (success) {
+        dialog.showAndWait().ifPresent(success -> {            if (success.isOk()) {
                 showAccountsScreen();
+            } else {
+                showErrorAlert("Failed to Add Student", success.getMessage());
             }
         });
     }
 
     private void showEditStudentDialog(User user) {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<OperationResult> dialog = new Dialog<>();
         dialog.setTitle("Edit Student - " + user.getStudentId());
         dialog.setHeaderText("Modify student information and academic attributes");
 
@@ -546,7 +571,7 @@ public class AdminDashboardView extends BorderPane {
 
         TextField nameField = new TextField(user.getFullName());
 
-        StudentProfile profile = profileDao.getProfile(user.getStudentId());
+        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
         String currentCourse = (profile != null && profile.getCourse() != null) ? profile.getCourse() : "Bachelor of Science in Information Technology";
         String currentYear = (profile != null && profile.getYearLevel() != null) ? profile.getYearLevel() : "1st Year";
         String currentSec = (profile != null && profile.getSection() != null) ? profile.getSection() : "";
@@ -579,16 +604,20 @@ public class AdminDashboardView extends BorderPane {
                 String sCourse = courseCombo.getValue();
                 String sYear = yearCombo.getValue();
                 String sSec = sectionField.getText().trim();
-                if (!sName.isEmpty()) {
-                    return networkService.adminEditStudent(user.getStudentId(), sName, sCourse, sYear, sSec);
+                if (sName.isEmpty()) {
+                    showErrorAlert("Missing Fields", "Full Name is required.");
+                    return null;
                 }
+                return networkService.adminEditStudent(user.getStudentId(), sName, sCourse, sYear, sSec);
             }
-            return false;
+            return null;
         });
 
         dialog.showAndWait().ifPresent(success -> {
-            if (success) {
+            if (success.isOk()) {
                 showAccountsScreen();
+            } else {
+                showErrorAlert("Failed to Update Student", success.getMessage());
             }
         });
     }
@@ -601,8 +630,12 @@ public class AdminDashboardView extends BorderPane {
 
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                networkService.adminDeleteStudent(user.getStudentId());
-                showAccountsScreen();
+                OperationResult res = networkService.adminDeleteStudent(user.getStudentId());
+                if (res.isOk()) {
+                    showAccountsScreen();
+                } else {
+                    showErrorAlert("Delete Failed", res.getMessage());
+                }
             }
         });
     }
@@ -648,9 +681,15 @@ public class AdminDashboardView extends BorderPane {
         addConnBtn.setOnAction(e -> {
             com.networkfinder.dsa.StudentNode n1 = s1Combo.getValue();
             com.networkfinder.dsa.StudentNode n2 = s2Combo.getValue();
-            if (n1 != null && n2 != null && !n1.getStudentId().equals(n2.getStudentId())) {
-                networkService.addConnection(n1.getStudentId(), n2.getStudentId());
+            if (n1 == null || n2 == null || n1.getStudentId().equals(n2.getStudentId())) {
+                showErrorAlert("Selection Required", "Choose two different students to create an edge.");
+                return;
+            }
+            OperationResult res = networkService.addConnection(n1.getStudentId(), n2.getStudentId());
+            if (res.isOk()) {
                 showConnectionsManagerScreen();
+            } else {
+                showErrorAlert("Connection Not Created", res.getMessage());
             }
         });
 
@@ -692,8 +731,12 @@ public class AdminDashboardView extends BorderPane {
                 delBtn.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 11px;");
                 delBtn.setOnAction(e -> {
                     String[] pair = getTableView().getItems().get(getIndex());
-                    networkService.removeConnection(pair[0], pair[1]);
-                    showConnectionsManagerScreen();
+                    OperationResult res = networkService.removeConnection(pair[0], pair[1]);
+                    if (res.isOk()) {
+                        showConnectionsManagerScreen();
+                    } else {
+                        showErrorAlert("Remove Failed", res.getMessage());
+                    }
                 });
             }
 
@@ -743,6 +786,7 @@ public class AdminDashboardView extends BorderPane {
             sb.append("   Edges -> ").append(networkService.getGraph().getNeighbors(v)).append("\n\n");
         }
         area.setText(sb.toString());
+        listCard.getChildren().addAll(listTitle, area);
 
         VBox canvasCard = new VBox(10);
         canvasCard.getStyleClass().add("card");
@@ -765,5 +809,25 @@ public class AdminDashboardView extends BorderPane {
         l.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft;");
         card.getChildren().addAll(v, l);
         return card;
+    }
+
+    /**
+     * Preloads profile course/section data once so table cell factories do not
+     * hit the database on every rendered cell (which stalls the FX thread).
+     */
+    private Map<String, String[]> preloadProfileColumns() {
+        Map<String, String[]> map = new HashMap<>();
+        for (StudentProfile p : networkService.getAllProfiles()) {
+            map.put(p.getStudentId(), new String[]{p.getCourse(), p.getSection()});
+        }
+        return map;
+    }
+
+    private void showErrorAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle(title);
+        alert.setHeaderText(title);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

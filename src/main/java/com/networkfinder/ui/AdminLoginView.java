@@ -63,14 +63,14 @@ public class AdminLoginView extends StackPane {
         Label userLabel = new Label("Admin Username");
         userLabel.getStyleClass().add("field-label");
         TextField userField = new TextField();
-        userField.setPromptText("Enter username (default: admin)");
+        userField.setPromptText("Enter username");
         userBox.getChildren().addAll(userLabel, userField);
 
         VBox passBox = new VBox(6);
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
         PasswordField passField = new PasswordField();
-        passField.setPromptText("Enter password (default: admin123)");
+        passField.setPromptText("Enter password");
         passBox.getChildren().addAll(passLabel, passField);
 
         Button loginBtn = new Button("Sign in");

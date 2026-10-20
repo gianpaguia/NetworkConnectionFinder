@@ -1,10 +1,10 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
 import com.networkfinder.dsa.*;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.OperationResult;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -20,7 +20,6 @@ import java.util.*;
 public class StudentDashboardView extends BorderPane {
     private final User currentUser;
     private final NetworkService networkService = NetworkService.getInstance();
-    private final ProfileDao profileDao = new ProfileDao();
 
     private final StackPane contentArea = new StackPane();
     private Button windowBackBtn;
@@ -95,7 +94,7 @@ public class StudentDashboardView extends BorderPane {
         Label nameLbl = new Label(currentUser.getFullName());
         nameLbl.getStyleClass().add("fluent-user-name");
 
-        StudentProfile profile = profileDao.getProfile(currentUser.getStudentId());
+        StudentProfile profile = networkService.getStudentProfile(currentUser.getStudentId());
 
         String subText = currentUser.getStudentId();
         if (profile != null && profile.getCourse() != null) {
@@ -477,7 +476,8 @@ public class StudentDashboardView extends BorderPane {
                 actionBtn = new Button("✓ Accept Request");
                 actionBtn.getStyleClass().add("button-primary");
                 actionBtn.setOnAction(e -> {
-                    networkService.acceptConnectionRequest(targetId, currentId);
+                    OperationResult res = networkService.acceptConnectionRequest(targetId, currentId);
+                    warnIfFailed("Connection Request", res);
                     showStudyGroupMatcherScreen();
                 });
             }
@@ -485,7 +485,8 @@ public class StudentDashboardView extends BorderPane {
             actionBtn = new Button("+ Send Request");
             actionBtn.getStyleClass().add("button-primary");
             actionBtn.setOnAction(e -> {
-                networkService.sendConnectionRequest(currentId, targetId);
+                OperationResult res = networkService.sendConnectionRequest(currentId, targetId);
+                warnIfFailed("Connection Request", res);
                 showStudyGroupMatcherScreen();
             });
         }
@@ -553,7 +554,12 @@ public class StudentDashboardView extends BorderPane {
         Label hintLabel = new Label("💡 Interactive Canvas: Click any node on the graph below to choose Source or Target.");
         hintLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-accent; -fx-font-weight: 500;");
 
-        selectorCard.getChildren().addAll(pickers, hintLabel);
+        Label bfsError = new Label();
+        bfsError.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 13px; -fx-font-weight: 600;");
+        bfsError.setVisible(false);
+        bfsError.setManaged(false);
+
+        selectorCard.getChildren().addAll(pickers, hintLabel, bfsError);
 
         // Results Card
         VBox resultsCard = new VBox(14);
@@ -581,7 +587,20 @@ public class StudentDashboardView extends BorderPane {
         runBfsBtn.setOnAction(e -> {
             StudentNode src = srcCombo.getValue();
             StudentNode tgt = tgtCombo.getValue();
-            if (src == null || tgt == null) return;
+            if (src == null || tgt == null) {
+                bfsError.setText("Select both a source and a target student.");
+                bfsError.setVisible(true);
+                bfsError.setManaged(true);
+                return;
+            }
+            if (src.getStudentId().equals(tgt.getStudentId())) {
+                bfsError.setText("Source and target must be different students.");
+                bfsError.setVisible(true);
+                bfsError.setManaged(true);
+                return;
+            }
+            bfsError.setVisible(false);
+            bfsError.setManaged(false);
 
             PathResult result = networkService.findShortestPath(src.getStudentId(), tgt.getStudentId());
             renderBfsResult(resultsCard, src, tgt, result);
@@ -663,6 +682,16 @@ public class StudentDashboardView extends BorderPane {
         return box;
     }
 
+    private void warnIfFailed(String title, OperationResult result) {
+        if (!result.isOk()) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(result.getMessage());
+            alert.showAndWait();
+        }
+    }
+
     // ==================================================
     // 3. QUERY 3 — MY CONNECTIONS & MUTUAL CONNECTIONS
     // ==================================================
@@ -711,7 +740,8 @@ public class StudentDashboardView extends BorderPane {
                 acceptBtn.getStyleClass().add("button-primary");
                 acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 acceptBtn.setOnAction(e -> {
-                    networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    OperationResult res = networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    warnIfFailed("Connection Request", res);
                     showConnectionsScreen();
                 });
 
@@ -719,7 +749,8 @@ public class StudentDashboardView extends BorderPane {
                 declineBtn.getStyleClass().add("button-secondary");
                 declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12; -fx-text-fill: -fx-danger;");
                 declineBtn.setOnAction(e -> {
-                    networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    OperationResult res = networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    warnIfFailed("Connection Request", res);
                     showConnectionsScreen();
                 });
 
@@ -766,7 +797,8 @@ public class StudentDashboardView extends BorderPane {
                 cancelBtn.getStyleClass().add("button-secondary");
                 cancelBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 cancelBtn.setOnAction(e -> {
-                    networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId());
+                    OperationResult res = networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId());
+                    warnIfFailed("Connection Request", res);
                     showConnectionsScreen();
                 });
 
@@ -806,16 +838,33 @@ public class StudentDashboardView extends BorderPane {
         sendReqBtn.getStyleClass().add("button-primary");
         sendReqBtn.setDisable(connectable.isEmpty());
 
+        Label connectFeedback = new Label();
+        connectFeedback.setWrapText(true);
+        connectFeedback.setVisible(false);
+        connectFeedback.setManaged(false);
+
         sendReqBtn.setOnAction(e -> {
             StudentNode target = classmatePicker.getValue();
-            if (target != null) {
-                networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId());
-                showConnectionsScreen();
+            if (target == null) {
+                connectFeedback.setStyle("-fx-text-fill: -fx-amber; -fx-font-weight: 600; -fx-font-size: 12px;");
+                connectFeedback.setText("Select a classmate to send a connection request.");
+                connectFeedback.setVisible(true);
+                connectFeedback.setManaged(true);
+                return;
             }
+            OperationResult res = networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId());
+            if (!res.isOk()) {
+                connectFeedback.setStyle("-fx-text-fill: -fx-danger; -fx-font-weight: 600; -fx-font-size: 12px;");
+                connectFeedback.setText(res.getMessage());
+                connectFeedback.setVisible(true);
+                connectFeedback.setManaged(true);
+                return;
+            }
+            showConnectionsScreen();
         });
 
         connectRow.getChildren().addAll(classmatePicker, sendReqBtn);
-        connectCard.getChildren().addAll(connectTitle, connectDesc, connectRow);
+        connectCard.getChildren().addAll(connectTitle, connectDesc, connectRow, connectFeedback);
         mainBox.getChildren().add(connectCard);
 
         // 4. Direct Connections List Card
@@ -849,7 +898,8 @@ public class StudentDashboardView extends BorderPane {
                 disconnectBtn.getStyleClass().add("button-secondary");
                 disconnectBtn.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-danger;");
                 disconnectBtn.setOnAction(e -> {
-                    networkService.removeConnection(currentUser.getStudentId(), nId);
+                    OperationResult res = networkService.removeConnection(currentUser.getStudentId(), nId);
+                    warnIfFailed("Disconnect", res);
                     showConnectionsScreen();
                 });
 
@@ -869,7 +919,11 @@ public class StudentDashboardView extends BorderPane {
         mInputRow.setAlignment(Pos.CENTER_LEFT);
         Label pickLabel = new Label("Compare with:");
         ComboBox<StudentNode> compCombo = new ComboBox<>();
-        compCombo.getItems().addAll(networkService.getGraph().getAllNodes());
+        for (StudentNode node : networkService.getGraph().getAllNodes()) {
+            if (!node.getStudentId().equals(currentUser.getStudentId())) {
+                compCombo.getItems().add(node);
+            }
+        }
         compCombo.setMinWidth(260);
 
         Button compBtn = new Button("Find Mutuals");
@@ -882,7 +936,14 @@ public class StudentDashboardView extends BorderPane {
 
         compBtn.setOnAction(e -> {
             StudentNode other = compCombo.getValue();
-            if (other == null) return;
+            if (other == null) {
+                mutualResults.getChildren().clear();
+                Label pickFirst = new Label("Please select a classmate to compare with.");
+                pickFirst.setStyle("-fx-text-fill: -fx-amber; -fx-font-weight: 600;");
+                mutualResults.getChildren().add(pickFirst);
+                mutualResults.setVisible(true);
+                return;
+            }
 
             List<String> mutuals = networkService.getMutualConnections(currentUser.getStudentId(), other.getStudentId());
             mutualResults.getChildren().clear();

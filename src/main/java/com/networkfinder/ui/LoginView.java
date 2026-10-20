@@ -1,11 +1,10 @@
 package com.networkfinder.ui;
 
-import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.AuthService;
+import com.networkfinder.service.NetworkService;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -14,7 +13,7 @@ import javafx.scene.text.Text;
 
 public class LoginView extends StackPane {
     private final AuthService authService = new AuthService();
-    private final ProfileDao profileDao = new ProfileDao();
+    private final NetworkService networkService = NetworkService.getInstance();
 
     public LoginView() {
         setAlignment(Pos.CENTER);
@@ -133,7 +132,7 @@ public class LoginView extends StackPane {
                     if (user.getRole() == Role.ADMIN) {
                         ScreenNavigator.showAdminDashboard();
                     } else {
-                        StudentProfile profile = profileDao.getProfile(user.getStudentId());
+                        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
                         if (user.isProfileCompleted() && profile != null) {
                             ScreenNavigator.showStudentDashboard(user);
                         } else {

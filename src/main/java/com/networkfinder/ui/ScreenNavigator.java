@@ -44,6 +44,7 @@ public class ScreenNavigator {
     }
 
     public static void showRegister() {
+        currentUser = null;
         setRoot(new RegisterView(), "Student Registration");
     }
 

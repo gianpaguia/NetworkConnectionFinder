@@ -179,7 +179,7 @@ public class GraphConstellationCanvas extends Pane {
         }
 
         gc.setFill(TEXT_WHITE);
-        gc.setFont(javafx.scene.text.Font.font("Segoe UI", javafx.scene.text.FontWeight.SEMI_BOLD, minDim * 0.028));
+        gc.setFont(javafx.scene.text.Font.font("Lato", javafx.scene.text.FontWeight.SEMI_BOLD, minDim * 0.028));
         gc.fillText("1st degree", p0[0] * w + minDim * 0.030, p0[1] * h - minDim * 0.030);
         gc.fillText("2nd degree", p2[0] * w - minDim * 0.115, p2[1] * h + minDim * 0.055);
 

@@ -2,6 +2,7 @@ package com.networkfinder.ui;
 
 import com.networkfinder.dsa.Graph;
 import com.networkfinder.dsa.StudentNode;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
@@ -27,8 +28,20 @@ public class GraphVisualizerCanvas extends Pane {
         setPrefSize(700, 480);
         setMinHeight(420);
 
-        widthProperty().addListener((obs, old, val) -> redraw());
-        heightProperty().addListener((obs, old, val) -> redraw());
+        widthProperty().addListener((obs, old, val) -> scheduleRedraw());
+        heightProperty().addListener((obs, old, val) -> scheduleRedraw());
+    }
+
+    /**
+     * Defers redraw out of the current layout pass so the children list is not
+     * mutated mid-layout (JavaFX throws on that).
+     */
+    private void scheduleRedraw() {
+        if (Platform.isFxApplicationThread()) {
+            Platform.runLater(this::redraw);
+        } else {
+            redraw();
+        }
     }
 
     public void setOnNodeClicked(java.util.function.Consumer<StudentNode> onNodeClicked) {
@@ -123,7 +136,7 @@ public class GraphVisualizerCanvas extends Pane {
             circle.setStrokeWidth(2.0);
 
             Text label = new Text();
-            label.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+            label.setFont(Font.font("Lato", FontWeight.BOLD, 12));
 
             String[] parts = node.getFullName().split("\\s+");
             String initials = parts.length > 1 ? ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)) : parts[0].substring(0, Math.min(2, parts[0].length()));
@@ -151,7 +164,7 @@ public class GraphVisualizerCanvas extends Pane {
             nodeCirclePane.setCursor(javafx.scene.Cursor.HAND);
 
             Label nameLabel = new Label(node.getFullName() + "\n" + id);
-            nameLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 10));
+            nameLabel.setFont(Font.font("Lato", FontWeight.SEMI_BOLD, 11));
             nameLabel.setAlignment(Pos.CENTER);
             nameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
             nameLabel.setStyle("-fx-text-fill: -fx-ink-soft;");
