@@ -371,13 +371,13 @@ public class ProfileWizardView extends StackPane {
         habitsGrid.setVgap(10);
 
         String[][] habits = {
-                {"📚 Reviewing Lessons", "Reviewing Lessons"},
-                {"💻 Coding Together", "Coding Together"},
-                {"🧠 Solving Problems", "Solving Problems"},
-                {"📝 Exam Review", "Exam Review"},
-                {"🎯 Working on Projects", "Working on Projects"},
-                {"🗣️ Group Discussions", "Group Discussions"},
-                {"📖 Sharing Notes", "Sharing Notes"}
+                {"☰ Reviewing Lessons", "Reviewing Lessons"},
+                {"❯ Coding Together", "Coding Together"},
+                {"✱ Solving Problems", "Solving Problems"},
+                {"▤ Exam Review", "Exam Review"},
+                {"⊕ Working on Projects", "Working on Projects"},
+                {"❞ Group Discussions", "Group Discussions"},
+                {"▦ Sharing Notes", "Sharing Notes"}
         };
 
         int col = 0, row = 0;

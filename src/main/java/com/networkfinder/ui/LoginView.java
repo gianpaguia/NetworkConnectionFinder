@@ -83,7 +83,7 @@ public class LoginView extends StackPane {
         visiblePassField.setVisible(false);
         visiblePassField.setManaged(false);
 
-        Button eyeButton = new Button("👁");
+        Button eyeButton = new Button("◉");
         eyeButton.setAccessibleText("Show password");
         eyeButton.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0 8 0 0; -fx-text-fill: -fx-ink-soft;");
         StackPane.setAlignment(eyeButton, Pos.CENTER_RIGHT);

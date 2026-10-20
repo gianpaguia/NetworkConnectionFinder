@@ -110,8 +110,9 @@ public class RegisterView extends StackPane {
         uploadContent.setAlignment(Pos.CENTER);
         uploadContent.setFillWidth(true);
 
-        Label camIcon = new Label("📷");
+        Label camIcon = new Label("◉");
         camIcon.setStyle("-fx-font-size: 26px;");
+        camIcon.getStyleClass().add("icon-muted");
 
         Label uploadText = new Label("Upload Student ID");
         uploadText.setStyle("-fx-font-size: 14px; -fx-font-weight: 600; -fx-text-fill: -fx-green;");

@@ -60,8 +60,8 @@ public class AdminDashboardView extends BorderPane {
         Label userMgmtLabel = new Label("User management");
         userMgmtLabel.getStyleClass().add("sidebar-section-heading");
 
-        Button idVerifBtn = createNavButton("📋  ID Verification", true);
-        Button accountsBtn = createNavButton("👥  Student Accounts", false);
+        Button idVerifBtn = createNavButton("☑  ID Verification", true);
+        Button accountsBtn = createNavButton("◍  Student Accounts", false);
 
         idVerifBtn.setOnAction(e -> {
             setActiveNav(idVerifBtn);
@@ -77,13 +77,13 @@ public class AdminDashboardView extends BorderPane {
         Label networkLabel = new Label("Network");
         networkLabel.getStyleClass().add("sidebar-section-heading");
 
-        Button netOverviewBtn = createNavButton("🌐  Network Graph", false);
+        Button netOverviewBtn = createNavButton("◎  Network Graph", false);
         netOverviewBtn.setOnAction(e -> {
             setActiveNav(netOverviewBtn);
             showNetworkOverviewScreen();
         });
 
-        Button connManagerBtn = createNavButton("🔗  Connections Manager", false);
+        Button connManagerBtn = createNavButton("⧉  Connections Manager", false);
         connManagerBtn.setOnAction(e -> {
             setActiveNav(connManagerBtn);
             showConnectionsManagerScreen();
@@ -94,7 +94,7 @@ public class AdminDashboardView extends BorderPane {
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         // Logout
-        Button logoutBtn = new Button("🚪  Logout");
+        Button logoutBtn = new Button("⇥  Logout");
         logoutBtn.getStyleClass().add("nav-button");
         logoutBtn.setStyle("-fx-text-fill: -fx-danger;");
         logoutBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
@@ -190,7 +190,7 @@ public class AdminDashboardView extends BorderPane {
                     if (empty || item == null) {
                         setGraphic(null);
                     } else {
-                        Label badge = new Label("🟡 Pending");
+                        Label badge = new Label("● Pending");
                         badge.getStyleClass().add("badge-pending");
                         setGraphic(badge);
                     }
@@ -336,7 +336,7 @@ public class AdminDashboardView extends BorderPane {
                 imgContainer.getChildren().add(errImg);
             }
         } else {
-            Label placeholder = new Label("📷 [ Placeholder: No Student ID image uploaded ]");
+            Label placeholder = new Label("◉ [ Placeholder: No Student ID image uploaded ]");
             placeholder.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-weight: 600;");
             imgContainer.getChildren().add(placeholder);
         }
@@ -378,7 +378,7 @@ public class AdminDashboardView extends BorderPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button addStudentBtn = new Button("➕ Add New Student");
+        Button addStudentBtn = new Button("✚ Add New Student");
         addStudentBtn.getStyleClass().add("button-primary");
         addStudentBtn.setOnAction(e -> showAddStudentDialog());
 
@@ -419,7 +419,7 @@ public class AdminDashboardView extends BorderPane {
                     b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
                     setGraphic(b);
                 } else if ("PENDING".equals(item)) {
-                    Label b = new Label("🟡 Pending");
+                    Label b = new Label("● Pending");
                     b.getStyleClass().add("badge-pending");
                     setGraphic(b);
                 } else {
@@ -656,7 +656,7 @@ public class AdminDashboardView extends BorderPane {
         // Card 1: Add Connection
         VBox addCard = new VBox(12);
         addCard.getStyleClass().add("card");
-        Label addTitle = new Label("➕ Add Graph Edge (Connection)");
+        Label addTitle = new Label("✚ Add Graph Edge (Connection)");
         addTitle.getStyleClass().add("card-title");
 
         HBox formRow = new HBox(14);

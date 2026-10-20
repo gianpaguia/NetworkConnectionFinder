@@ -765,6 +765,20 @@
     -fx-padding: 0;
 }
 
+/* Geometric icon glyphs — tint classes so icons read as iconography, not text */
+.icon-accent {
+    -fx-text-fill: -fx-accent;
+}
+
+.icon-orb,
+.icon-muted {
+    -fx-text-fill: -fx-ink-subtle;
+}
+
+.icon-orb-solid {
+    -fx-text-fill: -fx-amber;
+}
+
 /* Text areas (admin adjacency-list dump) — match the dark surface */
 .text-area {
     -fx-background-color: rgba(20, 20, 25, 0.90);
