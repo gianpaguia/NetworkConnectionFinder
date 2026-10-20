@@ -8,8 +8,8 @@ package com.networkfinder.service;
 public final class InputValidator {
 
     private static final String STUDENT_ID_PATTERN = "^[0-9]+$";
-    private static final String PERSON_NAME_PATTERN = "^[A-Za-z .'-]+$";
-    private static final String MIDDLE_INITIAL_PATTERN = "^[A-Za-z]\\.?$";
+    private static final String PERSON_NAME_PATTERN = "^[A-Za-z]+(?: [A-Za-z]+)*$";
+    private static final String SHORT_NAME_PATTERN = "^[A-Za-z]{1,2}$";
     private static final String PASSWORD_DIGIT_PATTERN = ".*\\d.*";
     private static final String PASSWORD_LETTER_PATTERN = ".*[A-Za-z].*";
 
@@ -22,6 +22,14 @@ public final class InputValidator {
     private static final int MAX_PASSWORD_LENGTH = 72;
 
     private InputValidator() {
+    }
+
+    public static int getMaxIdLength() {
+        return MAX_ID_LENGTH;
+    }
+
+    public static int getMaxNameLength() {
+        return SURNAME_MAX_LENGTH;
     }
 
     /** Valid: non-blank digits only (no letters or symbols), at most 30 chars. */
@@ -39,7 +47,7 @@ public final class InputValidator {
         return null;
     }
 
-    /** Valid: non-blank letters/spaces/hyphens/apostrophes/periods only. */
+    /** Valid: non-blank letters/spaces only, internal spaces, at most maxLength. */
     private static String checkPersonName(String rawName, String label, int maxLength) {
         String name = rawName == null ? "" : rawName.trim();
         if (name.isEmpty()) {
@@ -49,7 +57,7 @@ public final class InputValidator {
             return label + " must be at most " + maxLength + " characters.";
         }
         if (!name.matches(PERSON_NAME_PATTERN)) {
-            return label + " may only contain letters, spaces, hyphens, apostrophes, and periods.";
+            return label + " may contain letters only (spaces allowed, no numbers or symbols).";
         }
         return null;
     }
@@ -64,34 +72,26 @@ public final class InputValidator {
         return checkPersonName(rawSurname, "Surname", SURNAME_MAX_LENGTH);
     }
 
-    /** Optional. When given: one letter with optional period, e.g. "J" or "J.". */
+    /** Optional. When given: up to two letters, e.g. "J" or "Jr" style marks. */
     public static String checkMiddleInitial(String rawMiddleInitial) {
         String middle = rawMiddleInitial == null ? "" : rawMiddleInitial.trim();
         if (middle.isEmpty()) {
             return null;
         }
-        if (middle.length() > 2 || !middle.matches(MIDDLE_INITIAL_PATTERN)) {
-            return "Middle initial must be a single letter, optionally followed by a period.";
+        if (!middle.matches(SHORT_NAME_PATTERN)) {
+            return "Middle initial must be 1-2 letters only (no numbers or symbols).";
         }
         return null;
     }
 
-    /** Optional. When given: "Jr", "Sr", "III", or "Jr.", "Sr.", up to 6 chars letters. */
+    /** Optional. When given: up to two letters only, e.g. "Jr" or "Sr". */
     public static String checkSuffix(String rawSuffix) {
         String suffix = rawSuffix == null ? "" : rawSuffix.trim();
         if (suffix.isEmpty()) {
             return null;
         }
-        if (suffix.length() > 6) {
-            return "Suffix must be at most 6 characters.";
-        }
-        if (suffix.matches("Jr\\.?") || suffix.matches("Sr\\.?")) {
-            return null;
-        }
-        boolean isRoman = suffix.matches("[IVXivx]{1,4}");
-        boolean isWord = suffix.matches("[A-Za-z]{1,5}");
-        if (!isRoman && !isWord) {
-            return "Suffix may only contain letters or periods (e.g. Jr., Sr., III).";
+        if (!suffix.matches(SHORT_NAME_PATTERN)) {
+            return "Suffix must be 1-2 letters only (e.g. Jr, Sr).";
         }
         return null;
     }

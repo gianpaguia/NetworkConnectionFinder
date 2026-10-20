@@ -2,6 +2,7 @@ package com.networkfinder.ui;
 
 import com.networkfinder.model.User;
 import com.networkfinder.service.AuthService;
+import com.networkfinder.service.InputValidator;
 import com.networkfinder.service.ValidationException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -64,6 +65,7 @@ public class RegisterView extends StackPane {
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
         idField.setPromptText("Numbers only (e.g. 202612345)");
+        idField.setTextFormatter(TextFieldFilters.studentIdFilter(InputValidator.getMaxIdLength()));
         idBox.getChildren().addAll(idLabel, idField);
 
         // Row 1: First Name + Surname (both required)
@@ -72,14 +74,16 @@ public class RegisterView extends StackPane {
         Label firstNameLabel = new Label("First Name");
         firstNameLabel.getStyleClass().add("field-label");
         TextField firstNameField = new TextField();
-        firstNameField.setPromptText("e.g. Juan");
+        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
         firstNameBox.getChildren().addAll(firstNameLabel, firstNameField);
 
         VBox surnameBox = new VBox(4);
         Label surnameLabel = new Label("Surname");
         surnameLabel.getStyleClass().add("field-label");
         TextField surnameField = new TextField();
-        surnameField.setPromptText("e.g. Dela Cruz");
+        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
         surnameBox.getChildren().addAll(surnameLabel, surnameField);
         firstNameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         surnameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
@@ -91,14 +95,16 @@ public class RegisterView extends StackPane {
         Label middleLabel = new Label("Middle Initial (Optional)");
         middleLabel.getStyleClass().add("field-label");
         TextField middleField = new TextField();
-        middleField.setPromptText("e.g. M.");
+        middleField.setPromptText("1-2 letters (e.g. M)");
+        middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
         middleBox.getChildren().addAll(middleLabel, middleField);
 
         VBox suffixBox = new VBox(4);
         Label suffixLabel = new Label("Suffix (Optional)");
         suffixLabel.getStyleClass().add("field-label");
         TextField suffixField = new TextField();
-        suffixField.setPromptText("e.g. Jr.");
+        suffixField.setPromptText("1-2 letters (e.g. Jr)");
+        suffixField.setTextFormatter(TextFieldFilters.shortNameFilter());
         suffixBox.getChildren().addAll(suffixLabel, suffixField);
         middleBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         suffixBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));

@@ -5,6 +5,7 @@ import com.networkfinder.database.UserDao;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
+import com.networkfinder.service.InputValidator;
 import com.networkfinder.service.NetworkService;
 import com.networkfinder.service.ValidationException;
 import com.networkfinder.service.VerificationService;
@@ -495,18 +496,23 @@ public class AdminDashboardView extends BorderPane {
 
         TextField idField = new TextField();
         idField.setPromptText("Numbers only (e.g. 202610011)");
+        idField.setTextFormatter(TextFieldFilters.studentIdFilter(InputValidator.getMaxIdLength()));
 
         TextField firstNameField = new TextField();
-        firstNameField.setPromptText("e.g. Juan");
+        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField middleField = new TextField();
-        middleField.setPromptText("Optional (e.g. M.)");
+        middleField.setPromptText("1-2 letters (e.g. M)");
+        middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         TextField surnameField = new TextField();
-        surnameField.setPromptText("e.g. Dela Cruz");
+        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField suffixField = new TextField();
-        suffixField.setPromptText("Optional (e.g. Jr.)");
+        suffixField.setPromptText("1-2 letters (e.g. Jr)");
+        suffixField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         ComboBox<String> courseCombo = new ComboBox<>();
         courseCombo.getItems().addAll(
@@ -592,16 +598,20 @@ public class AdminDashboardView extends BorderPane {
         String suffix = user.getSuffix() != null ? user.getSuffix() : "";
 
         TextField firstNameField = new TextField(first);
-        firstNameField.setPromptText("e.g. Juan");
+        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField middleField = new TextField(middle);
-        middleField.setPromptText("Optional (e.g. M.)");
+        middleField.setPromptText("1-2 letters (e.g. M)");
+        middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         TextField surnameField = new TextField(surname);
-        surnameField.setPromptText("e.g. Dela Cruz");
+        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField suffixField = new TextField(suffix);
-        suffixField.setPromptText("Optional (e.g. Jr.)");
+        suffixField.setPromptText("1-2 letters (e.g. Jr)");
+        suffixField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         StudentProfile profile = profileDao.getProfile(user.getStudentId());
         String currentCourse = (profile != null && profile.getCourse() != null) ? profile.getCourse() : "Bachelor of Science in Information Technology";

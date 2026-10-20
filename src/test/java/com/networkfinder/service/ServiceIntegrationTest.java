@@ -207,9 +207,9 @@ public class ServiceIntegrationTest {
         assertThrows(ValidationException.class, () ->
                 authService.registerStudent(uniqueTestId(), "Juan123", null, "Tan", null, "pass1234", null));
 
-        // Middle initial not a single letter
+        // Middle initial with punctuation (periods no longer accepted)
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(uniqueTestId(), "Juan", "Ma", "Tan", null, "pass1234", null));
+                authService.registerStudent(uniqueTestId(), "Juan", "M.", "Tan", null, "pass1234", null));
 
         // Suffix containing digits
         assertThrows(ValidationException.class, () ->

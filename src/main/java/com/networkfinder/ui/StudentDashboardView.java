@@ -59,12 +59,21 @@ public class StudentDashboardView extends BorderPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        Button settingsBtn = new Button("⚙ Settings · Account");
+        settingsBtn.getStyleClass().add("button-secondary");
+        settingsBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+        settingsBtn.setOnAction(e -> {
+            windowBackBtn.setVisible(true);
+            windowTitleLbl.setText("Settings > Account");
+            showSettingsPanel();
+        });
+
         Button logoutBtn = new Button("Sign out");
         logoutBtn.getStyleClass().add("button-secondary");
         logoutBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
         logoutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
 
-        bar.getChildren().addAll(windowBackBtn, windowTitleLbl, spacer, logoutBtn);
+        bar.getChildren().addAll(windowBackBtn, windowTitleLbl, spacer, settingsBtn, logoutBtn);
         return bar;
     }
 
@@ -137,11 +146,18 @@ public class StudentDashboardView extends BorderPane {
 
         searchContainer.getChildren().add(searchField);
 
-        // 3. Category Grid (Fluent Tiles)
-        FlowPane tileGrid = new FlowPane(16, 16);
+        // 3. Category Grid (Fluent Tiles) - stretches to fill maximized windows
+        GridPane tileGrid = new GridPane();
         tileGrid.getStyleClass().add("fluent-grid-container");
-        tileGrid.setPrefWrapLength(840);
-        tileGrid.setMaxWidth(860);
+        tileGrid.setHgap(16);
+        tileGrid.setVgap(16);
+        tileGrid.setMaxWidth(Double.MAX_VALUE);
+        for (int i = 0; i < 3; i++) {
+            ColumnConstraints col = new ColumnConstraints();
+            col.setHgrow(Priority.ALWAYS);
+            col.setFillWidth(true);
+            tileGrid.getColumnConstraints().add(col);
+        }
 
         allTiles.clear();
 
@@ -177,26 +193,21 @@ public class StudentDashboardView extends BorderPane {
             showAccountVerificationModal();
         });
 
-        VBox tileSettings = createFluentTile("⚙️", "Settings · Account", "Change password, session, sign out", () -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > Account");
-            showSettingsPanel();
-        });
-
-        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile, tileVerification, tileSettings));
-        tileGrid.getChildren().addAll(allTiles);
+        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile, tileVerification));
+        layoutTilesOnGrid(tileGrid, allTiles);
 
         // Live search filter on tiles
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             String query = (newVal == null) ? "" : newVal.toLowerCase().trim();
-            tileGrid.getChildren().clear();
+            List<VBox> visibleTiles = new ArrayList<>();
             for (VBox t : allTiles) {
                 Label tTitle = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(0);
                 Label tDesc = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(1);
                 if (query.isEmpty() || tTitle.getText().toLowerCase().contains(query) || tDesc.getText().toLowerCase().contains(query)) {
-                    tileGrid.getChildren().add(t);
+                    visibleTiles.add(t);
                 }
             }
+            layoutTilesOnGrid(tileGrid, visibleTiles);
         });
 
         homeBox.getChildren().addAll(heroBanner, searchContainer, tileGrid);
@@ -223,12 +234,24 @@ public class StudentDashboardView extends BorderPane {
         return card;
     }
 
+    /** Places tiles into the stretchy 3-column grid, row by row. */
+    private void layoutTilesOnGrid(GridPane grid, List<VBox> tiles) {
+        grid.getChildren().clear();
+        int column = 0;
+        for (VBox tile : tiles) {
+            grid.add(tile, column, column / 3);
+            column++;
+        }
+    }
+
     private VBox createFluentTile(String icon, String title, String desc, Runnable onClick) {
         VBox card = new VBox();
         card.getStyleClass().add("fluent-tile");
+        card.setMaxWidth(Double.MAX_VALUE);
 
-        HBox inner = new HBox(14);
+        HBox inner = new HBox(16);
         inner.setAlignment(Pos.CENTER_LEFT);
+        inner.setMaxWidth(Double.MAX_VALUE);
 
         StackPane iconBox = new StackPane();
         iconBox.getStyleClass().add("fluent-tile-icon-box");
@@ -236,15 +259,17 @@ public class StudentDashboardView extends BorderPane {
         iconLbl.getStyleClass().add("fluent-tile-icon");
         iconBox.getChildren().add(iconLbl);
 
-        VBox textCol = new VBox(3);
+        VBox textCol = new VBox(4);
         Label titleLbl = new Label(title);
         titleLbl.getStyleClass().add("fluent-tile-title");
 
         Label descLbl = new Label(desc);
         descLbl.getStyleClass().add("fluent-tile-desc");
         descLbl.setWrapText(true);
+        textCol.setMaxWidth(Double.MAX_VALUE);
 
         textCol.getChildren().addAll(titleLbl, descLbl);
+        HBox.setHgrow(textCol, Priority.ALWAYS);
         inner.getChildren().addAll(iconBox, textCol);
         card.getChildren().add(inner);
 
