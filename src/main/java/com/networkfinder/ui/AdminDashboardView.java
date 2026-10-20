@@ -279,7 +279,7 @@ public class AdminDashboardView extends BorderPane {
         Button approveBtn = new Button("✓ APPROVE");
         approveBtn.getStyleClass().add("button-primary");
         approveBtn.setOnAction(e -> {
-            if (!verificationService.approveStudent(user.getStudentId())) {
+            if (!verificationService.approveStudent(user.getStudentId()).isOk()) {
                 UiDialogs.showError("Could not approve this student. Please try again.");
                 return;
             }
@@ -290,7 +290,7 @@ public class AdminDashboardView extends BorderPane {
         Button rejectBtn = new Button("✕ REJECT");
         rejectBtn.getStyleClass().add("button-danger");
         rejectBtn.setOnAction(e -> {
-            if (!verificationService.rejectStudent(user.getStudentId())) {
+            if (!verificationService.rejectStudent(user.getStudentId()).isOk()) {
                 UiDialogs.showError("Could not reject this student. Please try again.");
                 return;
             }

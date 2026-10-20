@@ -120,18 +120,6 @@ public class UserDao {
         }
     }
 
-    public boolean updatePasswordHash(String studentId, String passwordHash) {
-        String sql = "UPDATE users SET password_hash = ? WHERE student_id = ? AND role <> 'ADMIN';";
-        try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, passwordHash);
-            stmt.setString(2, studentId);
-            return stmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
     public boolean updateProfileCompleted(String studentId, boolean completed) {
         String sql = "UPDATE users SET profile_completed = ? WHERE student_id = ?;";
         try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {

@@ -66,7 +66,7 @@ public class ServiceIntegrationTest {
         assertTrue(pending.stream().anyMatch(u -> u.getStudentId().equals(testId)));
 
         // 4. Admin approves student
-        assertTrue(verificationService.approveStudent(testId));
+        assertTrue(verificationService.approveStudent(testId).isOk());
 
         // 5. Student can now login
         AuthService.LoginResult loginApproved = authService.authenticate(testId, "pass1234");
@@ -242,7 +242,7 @@ public class ServiceIntegrationTest {
 
         String testId = uniqueTestId();
         authService.registerStudent(testId, "Password", null, "Changer", null, "pass1234", null);
-        assertTrue(verificationService.approveStudent(testId));
+        assertTrue(verificationService.approveStudent(testId).isOk());
 
         // Wrong current password is rejected
         assertEquals(AuthService.PasswordChangeResult.WRONG_CURRENT_PASSWORD,
@@ -269,7 +269,7 @@ public class ServiceIntegrationTest {
 
         String testId = uniqueTestId();
         authService.registerStudent(testId, "Resettable", null, "Student", null, "pass1234", null);
-        assertTrue(verificationService.approveStudent(testId));
+        assertTrue(verificationService.approveStudent(testId).isOk());
 
         // Weak new password rejected
         assertThrows(ValidationException.class, () ->
