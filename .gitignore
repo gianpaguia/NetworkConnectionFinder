@@ -1,0 +1,9 @@
+target/
+.tools/
+data/*.db
+data/uploads/*
+!data/uploads/.gitkeep
+.idea/
+*.iml
+.vscode/
+.vs/

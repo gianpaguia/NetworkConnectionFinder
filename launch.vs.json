@@ -1,0 +1,11 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "run.bat",
+      "name": "Run Network Finder (JavaFX)"
+    }
+  ]
+}
