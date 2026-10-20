@@ -15,15 +15,17 @@ flowchart TB
         NAV[ScreenNavigator<br/>single-stage routing]
         V1[LoginView / RegisterView / AdminLoginView<br/>RegistrationSubmittedView]
         V2[ProfileWizardView / ProfileCompleteView]
-        V3[StudentDashboardView<br/>home hub + 5 feature screens]
-        V4[AdminDashboardView<br/>4 admin screens]
+        V3[StudentDashboardView<br/>home hub + settings + 5 feature screens]
+        V4[AdminDashboardView<br/>4 admin screens + dialogs]
         C1[GraphVisualizerCanvas / GraphConstellationCanvas]
+        W1[PasswordRevealField · UiDialogs · TextFieldFilters]
     end
 
     subgraph SVC["Service Layer — service/"]
-        AUTH[AuthService<br/>login · registration · hashing]
+        AUTH[AuthService<br/>login · registration · password change]
         VERIF[VerificationService<br/>approve / reject students]
         NET[NetworkService<br/>graph state + connection ops]
+        VAL[InputValidator + ValidationException<br/>single source of field-format truth]
     end
 
     subgraph DSA["DSA Layer — dsa/"]
@@ -62,9 +64,12 @@ flowchart TB
 
 - **Services are the only seam** between UI and logic/persistence: every view reaches data
   through a service. `NetworkService` doubles as a **read facade** (`getStudentProfile`,
-  `getAllUsers`, `getAllProfiles`) so views never construct DAOs.
+  `getAllUsers`, `getAllProfiles`, `saveStudentProfile`) so views never construct DAOs.
 - **Mutations return `OperationResult`** (`ok` flag + human-readable `message`), so UIs surface
   the exact service reason instead of guessing (inline labels, alerts or dialog failures).
+- **Field-format validation lives in `InputValidator`** (`checkStudentId`, name-part checks,
+  `checkPassword`, …). Violations surface as typed `ValidationException`s; every entry point —
+  register, admin add/edit, password resets — funnels through it so rules never drift per screen.
 - **NetworkService** is a synchronized singleton that owns the in-memory `Graph` and keeps it
   consistent with the database via `reloadGraph()`.
 
@@ -77,18 +82,22 @@ flowchart TB
 | `com.networkfinder` | `Launcher` | Entry point shim (`MainApp.main`) |
 | | `MainApp` | JavaFX `Application`: loads Lato fonts, boots DB, seeds, reloads graph, shows login |
 | `ui` | `ScreenNavigator` | Holds primary `Stage` + `currentUser`; every screen swap goes through it |
-| | `LoginView` / `AdminLoginView` | Student & admin sign-in (show/hide password, role routing) |
-| | `RegisterView` | Registration form with ID-card image upload → `AuthService.registerStudent` |
+| | `LoginView` / `AdminLoginView` | Student & admin sign-in (password reveal, default buttons, role routing) |
+| | `RegisterView` | Registration form with first/middle/surname/suffix fields, validated ID-card upload (`AuthService.validateIdCardImage`) → `AuthService.registerStudent` |
 | | `RegistrationSubmittedView` | "Submitted, pending verification" confirmation |
-| | `ProfileWizardView` | 4-step academic profile wizard (subjects, habits, group size, interests) |
+| | `ProfileWizardView` | 5-step academic profile wizard (course, section, subjects, habits + group size, interests) |
 | | `ProfileCompleteView` | Profile summary → continues to dashboard |
-| | `StudentDashboardView` | Windows-Settings-style hub: Matcher, Pathfinder, Connections, Analytics, Account modal, logout |
-| | `AdminDashboardView` | Sidebar: ID Verification, Student Accounts, Network Graph, Connections Manager |
+| | `StudentDashboardView` | Windows-Settings-style hub: Matcher, Pathfinder, Connections, Analytics, Account modal, logout; "Settings → Account" panel (identity summary, password change, sign-out) |
+| | `AdminDashboardView` | Sidebar: ID Verification, Student Accounts, Network Graph, Connections Manager; add/edit/delete dialogs + reset-password dialog |
+| | `PasswordRevealField` | Masked/plain password input with an eye toggle, shared by every password field |
+| | `UiDialogs` | Styled alert helpers (`showError` / `showSuccess` / `styleDialogPane`) |
+| | `TextFieldFilters` | `TextFormatter` input masks (student-ID charset, name parts, short labels) |
 | | `GraphVisualizerCanvas` | Circular graph layout, path highlighting, node click + tooltips |
 | | `GraphConstellationCanvas` | Animated decorative constellation (login/registration hero panel) |
-| `service` | `AuthService` | `authenticate` (PBKDF2 verify + legacy-hash upgrade), `registerStudent` (validation, sanitized 5 MB-capped ID upload) |
+| `service` | `AuthService` | `authenticate` (PBKDF2 verify + legacy-hash upgrade), `registerStudent` (validation, sanitized 5 MB-capped ID upload), `changePassword` → `PasswordChangeResult`, `validateIdCardImage` (static; also used by the RegisterView UI) |
+| | `InputValidator` / `ValidationException` | Field-format authority: `checkStudentId`, `checkFirstName/Surname/MiddleInitial/Suffix`, `checkPassword`, `checkCourse/Section`; violated rules throw typed exceptions consumed by services |
 | | `VerificationService` | Pending list; approve/reject students → `OperationResult` |
-| | `NetworkService` | Owns `Graph`; shortest-path/matcher/metrics façade; read facade (`getStudentProfile`, `getAllUsers`, `getAllProfiles`); `OperationResult` connection lifecycle + profile save + admin student/edge management |
+| | `NetworkService` | Owns `Graph`; shortest-path/matcher/metrics façade; read facade (`getStudentProfile`, `getAllUsers`, `getAllProfiles`, `saveStudentProfile`); `OperationResult` connection lifecycle + profile save + admin student/token/edge management (admin methods throw `ValidationException` for format rules) |
 | | `OperationResult` | Immutable mutation outcome: `ok()` flag + human-readable `getMessage()` consumed directly by UIs |
 | `dsa` | `Graph` | `HashMap<id, StudentNode>` + `HashMap<id, LinkedHashSet<id>>` adjacency list (thread-safe, snapshot reads) |
 | | `StudentNode` | Vertex: studentId, fullName, `StudentProfile` |
@@ -101,7 +110,7 @@ flowchart TB
 | | `UserDao` | users CRUD, pending/approved queries, status/name/password updates |
 | | `ProfileDao` | profiles upsert/lookup, list fields stored as JSON (Gson) |
 | | `ConnectionDao` | connection rows upsert/find/remove, accepted pairs, pending in/out requests |
-| `model` | `User`, `Role`, `VerificationStatus` | Account model + enums (STUDENT/ADMIN, PENDING/APPROVED/REJECTED) |
+| `model` | `User`, `Role`, `VerificationStatus` | Account model + enums (STUDENT/ADMIN, PENDING/APPROVED/REJECTED); `User` stores name parts (`firstName`, `middleInitial`, `surname`, `suffix`) and derives the composed `fullName` via `setNames()` / `composeFullName()` |
 | | `StudentProfile` | Course, year, section, subjects, study habits, group size, interests |
 | | `Connection`, `ConnectionStatus` | Edge record + PENDING/ACCEPTED |
 
@@ -116,9 +125,10 @@ stateDiagram-v2
     state "Student Login" as StudentLogin
     state "Student Registration" as Register
     state "Registration Submitted" as Submitted
-    state "Profile Wizard (4 steps)" as Wizard
+    state "Profile Wizard (5 steps)" as Wizard
     state "Profile Complete" as WizardDone
     state "Student Dashboard (home hub)" as SDB
+    state "Settings → Account (change password)" as Settings
     state "Study Group Matcher" as Matcher
     state "Pathfinder (BFS)" as Finder
     state "My Connections" as Conns
@@ -151,6 +161,8 @@ stateDiagram-v2
     SDB --> Analytics : tile "Network Graph & Hubs"
     SDB --> Wizard : tile "Academic Profile"
     SDB --> AccountModal : tile "Account & Verification"
+    SDB --> Settings : "Settings → Account" button
+    Settings --> SDB : back
     Matcher --> SDB : back
     Finder --> SDB : back
     Conns --> SDB : back
@@ -167,6 +179,8 @@ stateDiagram-v2
     note right of ADB
         Approve/Reject on the review screen sends the student
         through VerificationService → UserDao status update.
+        Accounts rows open edit/delete dialogs and a reset-password
+        dialog (InputValidator-strength password + eye button).
     end note
 ```
 
@@ -192,7 +206,11 @@ erDiagram
 
     USERS {
         TEXT student_id PK
-        TEXT full_name "NOT NULL"
+        TEXT first_name
+        TEXT middle_initial
+        TEXT surname
+        TEXT suffix
+        TEXT full_name "composed display name (legacy parity, derived)"
         TEXT password_hash "PBKDF2-SHA256 (pbkdf2$iter$salt$key) or legacy SHA-256 hex"
         TEXT id_card_image_path "data/uploads/id_ plus studentId plus extension"
         TEXT role "STUDENT | ADMIN"
@@ -222,6 +240,9 @@ erDiagram
 
 - **`networkfinder.db.path` system property** redirects the DB file (tests use a temp copy —
   the test suite never touches the developer's real database).
+- **Name-parts columns self-migrate:** schema init adds `first_name/middle_initial/surname/suffix`
+  to pre-existing databases via `ALTER TABLE ... ADD COLUMN` so a local `.db` from an older build
+  keeps working (`full_name` remains authoritative until the user is edited again).
 - Every connection opens with `PRAGMA foreign_keys = ON` and `busy_timeout = 5000`, so the
   cascades on this diagram are enforced at runtime.
 - A connection pair is **undirected at graph level**: `(A→B ACCEPTED)` ↔ `A—B` edge. Requests
@@ -277,10 +298,20 @@ sequenceDiagram
 
 ### 5.3 Registration
 
-`RegisterView` (validation: ID charset, ≥8 chars, password match, ID photo upload)
-→ `AuthService.registerStudent` → sanitized copy to `data/uploads/`, PBKDF2 hash,
-`UserDao.createUser` as `STUDENT / PENDING` → `RegistrationSubmittedView` → admin approves in
-the verification queue (`VerificationService.approveStudent` → status `APPROVED`).
+`RegisterView` (name-part fields, `TextFieldFilters` masks, ≥8-char password via
+`InputValidator.checkPassword`, password match, eye-toggle confirmation, ID photo upload
+re-validated by `AuthService.validateIdCardImage`) → `AuthService.registerStudent` → sanitized
+copy to `data/uploads/`, PBKDF2 hash, `UserDao.createUser` as `STUDENT / PENDING` (5-part name
+stored) → `RegistrationSubmittedView` → admin approves in the verification queue
+(`VerificationService.approveStudent` → status `APPROVED`).
+
+Password lifecycle mirrors this three ways:
+
+| Actor | Entry | Service result |
+|---|---|---|
+| Student | Dashboard "Settings → Account" change-password form | `AuthService.changePassword` → `PasswordChangeResult` (`SUCCESS` / `WRONG_CURRENT_PASSWORD` / `UNKNOWN_USER` / `ERROR`) |
+| Admin | Accounts screen reset-password dialog | `NetworkService.adminResetPassword` → `OperationResult` (accepts a fresh PBKDF2-hashed password, `ValidationException` on weak input) |
+| System | Login of a legacy SHA-256 account | silent upgrade to PBKDF2 in `authenticate` |
 
 ### 5.4 Pathfinder (BFS)
 
@@ -349,6 +380,7 @@ link or pending request with X already exists.", …) and the views show that me
 ## 6. Verification & Tooling
 
 - `mvnw.cmd test` — 4 unit test classes (Graph, BFSPathfinder, NetworkMetrics, StudyGroupMatcher)
-  plus `ServiceIntegrationTest` on an isolated temp DB (`networkfinder.db.path`).
+  plus `ServiceIntegrationTest` with 12 service tests (registration, login, password change/reset,
+  verification, connection lifecycle) on an isolated temp DB (`networkfinder.db.path`); 27 total.
 - `mvnw.cmd javafx:run` — launches the application for manual UI exploration.
 - The wrapper self-bootstraps Apache Maven 3.9.9 into `.tools\` on first use.
