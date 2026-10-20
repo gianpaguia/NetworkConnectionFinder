@@ -360,13 +360,13 @@ public class ProfileWizardView extends StackPane {
         habitsGrid.setVgap(10);
 
         String[][] habits = {
-                {"📚 Reviewing Lessons", "Reviewing Lessons"},
-                {"💻 Coding Together", "Coding Together"},
-                {"🧠 Solving Problems", "Solving Problems"},
-                {"📝 Exam Review", "Exam Review"},
-                {"🎯 Working on Projects", "Working on Projects"},
-                {"🗣️ Group Discussions", "Group Discussions"},
-                {"📖 Sharing Notes", "Sharing Notes"}
+                {"☰ Reviewing Lessons", "Reviewing Lessons"},
+                {"❯ Coding Together", "Coding Together"},
+                {"✱ Solving Problems", "Solving Problems"},
+                {"▤ Exam Review", "Exam Review"},
+                {"⊕ Working on Projects", "Working on Projects"},
+                {"❞ Group Discussions", "Group Discussions"},
+                {"▦ Sharing Notes", "Sharing Notes"}
         };
 
         int col = 0, row = 0;
@@ -405,7 +405,10 @@ public class ProfileWizardView extends StackPane {
         for (String[] s : sizes) {
             String title = s[0];
             String desc = s[1];
-            VBox card = new VBox(4);
+            Button card = new Button();
+
+            VBox cardContent = new VBox(4);
+            card.setAlignment(Pos.CENTER_LEFT);
             boolean selected = title.equalsIgnoreCase(selectedGroupSize);
             card.getStyleClass().add(selected ? "selectable-card-selected" : "selectable-card");
             HBox.setHgrow(card, Priority.ALWAYS);
@@ -414,9 +417,13 @@ public class ProfileWizardView extends StackPane {
             titleL.getStyleClass().add(selected ? "selectable-card-title-selected" : "selectable-card-title");
             Label descL = new Label(desc);
             descL.getStyleClass().add("selectable-card-desc");
-            card.getChildren().addAll(titleL, descL);
+            cardContent.getChildren().addAll(titleL, descL);
 
-            card.setOnMouseClicked(e -> {
+            card.setGraphic(cardContent);
+            card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            card.setMaxWidth(Double.MAX_VALUE);
+
+            card.setOnAction(e -> {
                 selectedGroupSize = title;
                 renderStep();
             });

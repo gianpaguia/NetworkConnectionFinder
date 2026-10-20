@@ -132,17 +132,19 @@ public class RegisterView extends StackPane {
         verifDesc.getStyleClass().add("helper-text");
         verifDesc.setWrapText(true);
 
-        VBox uploadBox = new VBox(8);
-        uploadBox.getStyleClass().add("upload-box");
-        uploadBox.setMinHeight(130);
+        Button uploadBox = new Button();
 
-        Label camIcon = new Label("📷");
+        VBox uploadContent = new VBox(8);
+        uploadContent.setAlignment(Pos.CENTER);
+
+        Label camIcon = new Label("◉");
+        camIcon.getStyleClass().add("icon-muted");
         camIcon.setStyle("-fx-font-size: 26px;");
 
         Label uploadText = new Label("Upload Student ID");
         uploadText.setStyle("-fx-font-size: 14px; -fx-font-weight: 600; -fx-text-fill: -fx-green;");
 
-        Label formatText = new Label("JPG or PNG");
+        Label formatText = new Label("JPG or PNG · max 5 MB");
         formatText.getStyleClass().add("helper-text");
 
         ImageView previewImage = new ImageView();
@@ -152,9 +154,15 @@ public class RegisterView extends StackPane {
         previewImage.setVisible(false);
         previewImage.setManaged(false);
 
-        uploadBox.getChildren().addAll(camIcon, uploadText, formatText, previewImage);
+        uploadContent.getChildren().addAll(camIcon, uploadText, formatText, previewImage);
 
-        uploadBox.setOnMouseClicked(e -> {
+        uploadBox.setGraphic(uploadContent);
+        uploadBox.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        uploadBox.getStyleClass().add("upload-box");
+        uploadBox.setMinHeight(130);
+        uploadBox.setMaxWidth(Double.MAX_VALUE);
+
+        uploadBox.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Select Student ID Photo");
             chooser.getExtensionFilters().addAll(

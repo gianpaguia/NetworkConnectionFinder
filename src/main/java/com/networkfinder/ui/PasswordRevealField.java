@@ -17,7 +17,7 @@ public class PasswordRevealField extends StackPane {
 
     private final PasswordField maskedField = new PasswordField();
     private final TextField plainField = new TextField();
-    private final Button eyeButton = new Button("👁");
+    private final Button eyeButton = new Button("◉");
 
     public PasswordRevealField(String promptText) {
         maskedField.setPromptText(promptText);

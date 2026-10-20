@@ -214,7 +214,7 @@
 }
 
 .fluent-status-sub {
-    -fx-font-size: 10px;
+    -fx-font-size: 11px;
     -fx-font-weight: 500;
     -fx-text-fill: -fx-ink-soft;
 }
@@ -233,7 +233,7 @@
     -fx-padding: 8px 14px;
     -fx-font-size: 13px;
     -fx-text-fill: #FFFFFF;
-    -fx-prompt-text-fill: #737380;
+    -fx-prompt-text-fill: -fx-ink-subtle;
     -fx-pref-width: 380px;
     -fx-max-width: 480px;
 }
@@ -258,6 +258,8 @@
     -fx-pref-height: 104px;
     -fx-min-height: 96px;
     -fx-alignment: center-left;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
 }
 
 .fluent-tile:hover {
@@ -585,6 +587,8 @@
     -fx-alignment: center-left;
     -fx-text-fill: #FFFFFF;
     -fx-font-weight: 600;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
 }
 
 .selectable-card:hover {
@@ -604,6 +608,8 @@
     -fx-alignment: center-left;
     -fx-text-fill: #60CDFF;
     -fx-font-weight: 700;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
 }
 
 .selectable-card-title {
@@ -657,6 +663,22 @@
 .selectable-card:pressed, .chip:pressed,
 .selectable-card-selected:pressed, .chip-selected:pressed {
     -fx-opacity: 0.85;
+}
+
+/* Keyboard-focus ring for interactive cards rebuilt on Button */
+.fluent-tile:focused,
+.selectable-card:focused,
+.selectable-card-selected:focused,
+.chip:focused, .chip-selected:focused,
+.upload-box:focused {
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1.5px;
+    -fx-border-insets: 0;
+}
+
+/* Muted tint for decorative glyphs */
+.icon-muted {
+    -fx-text-fill: rgba(255, 255, 255, 0.55);
 }
 
 /* Upload Box */
