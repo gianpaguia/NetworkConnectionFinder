@@ -12,6 +12,8 @@ public class ScreenNavigator {
 
     public static void init(Stage stage) {
         primaryStage = stage;
+        stage.setMinWidth(960);
+        stage.setMinHeight(640);
     }
 
     public static Stage getPrimaryStage() {

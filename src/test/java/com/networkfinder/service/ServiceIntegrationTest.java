@@ -20,6 +20,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class ServiceIntegrationTest {
 
+    private static final java.util.concurrent.atomic.AtomicLong TEST_SEQ = new java.util.concurrent.atomic.AtomicLong();
+
+    /** Unique, rule-compliant student ID for each test run (leaves the benchmark dataset untouched). */
+    private static String uniqueTestId() {
+        return "2026-TEST-" + System.currentTimeMillis() + "-" + TEST_SEQ.incrementAndGet();
+    }
+
     @BeforeAll
     public static void setUp() {
         DatabaseManager.getInstance();
@@ -37,18 +44,18 @@ public class ServiceIntegrationTest {
     }
 
     @Test
-    public void testStudentRegistrationAndVerificationWorkflow() throws IOException {
+    public void testStudentRegistrationAndVerificationWorkflow() throws Exception {
         AuthService authService = new AuthService();
         VerificationService verificationService = new VerificationService();
 
         String testId = "2026-TEST-" + System.currentTimeMillis();
         // 1. Register student
-        User student = authService.registerStudent(testId, "Test Student", "pass123", null);
+        User student = authService.registerStudent(testId, "Test Student", "pass1234", null);
         assertNotNull(student);
         assertEquals(VerificationStatus.PENDING, student.getVerificationStatus());
 
         // 2. Student cannot login while pending
-        AuthService.LoginResult loginPending = authService.authenticate(testId, "pass123");
+        AuthService.LoginResult loginPending = authService.authenticate(testId, "pass1234");
         assertEquals(AuthService.AuthStatus.PENDING_VERIFICATION, loginPending.getStatus());
 
         // 3. Admin sees pending student in list
@@ -59,7 +66,7 @@ public class ServiceIntegrationTest {
         assertTrue(verificationService.approveStudent(testId));
 
         // 5. Student can now login
-        AuthService.LoginResult loginApproved = authService.authenticate(testId, "pass123");
+        AuthService.LoginResult loginApproved = authService.authenticate(testId, "pass1234");
         assertEquals(AuthService.AuthStatus.SUCCESS, loginApproved.getStatus());
     }
 
@@ -138,7 +145,7 @@ public class ServiceIntegrationTest {
     }
 
     @Test
-    public void testAdminDataManagementAndReset() {
+    public void testAdminDataManagementAndReset() throws Exception {
         NetworkService netService = NetworkService.getInstance();
 
         // 1. Admin adds student
@@ -165,5 +172,104 @@ public class ServiceIntegrationTest {
         netService.adminResetDataset();
         assertEquals(10, netService.getGraph().getVertexCount());
         assertEquals(11, netService.getGraph().getEdgeCount());
+    }
+
+    // ==================================================
+    // VALIDATION AUTHORITY (service rejects bad input)
+    // ==================================================
+
+    @Test
+    public void testRegisterValidationRejectsBadInput() throws Exception {
+        AuthService authService = new AuthService();
+
+        // Student ID with a space (regex violation)
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("bad id!", "Valid Name", "pass1234", null));
+
+        // Password below the minimum length
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Valid Name", "short1", null));
+
+        // Password without a digit
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Valid Name", "nodigitpass", null));
+
+        // Blank full name
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "   ", "pass1234", null));
+
+        // Name containing digits
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Juan 123", "pass1234", null));
+
+        // Duplicate Student ID
+        String duplicateId = uniqueTestId();
+        authService.registerStudent(duplicateId, "First User", "pass1234", null);
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(duplicateId, "Second User", "pass1234", null));
+    }
+
+    @Test
+    public void testAdminAddStudentValidation() {
+        NetworkService netService = NetworkService.getInstance();
+
+        // Blank section rejected by the service even though the dialog allowed it before
+        assertThrows(ValidationException.class, () ->
+                netService.adminAddStudent(uniqueTestId(), "Section Check", "BSIT", "1st Year", " "));
+
+        // Password-like garbage in the ID (invalid characters)
+        assertThrows(ValidationException.class, () ->
+                netService.adminAddStudent("bad*id", "Section Check", "BSIT", "1st Year", "BSIT 1A"));
+    }
+
+    @Test
+    public void testChangePasswordWorkflow() throws Exception {
+        AuthService authService = new AuthService();
+        VerificationService verificationService = new VerificationService();
+
+        String testId = uniqueTestId();
+        authService.registerStudent(testId, "Password Changer", "pass1234", null);
+        assertTrue(verificationService.approveStudent(testId));
+
+        // Wrong current password is rejected
+        assertEquals(AuthService.PasswordChangeResult.WRONG_CURRENT_PASSWORD,
+                authService.changePassword(testId, "wrongpass1", "newpass99"));
+
+        // New password without a digit is rejected
+        assertThrows(ValidationException.class, () ->
+                authService.changePassword(testId, "pass1234", "newpassword"));
+
+        // Successful round-trip: old password dies, new password works
+        assertEquals(AuthService.PasswordChangeResult.SUCCESS,
+                authService.changePassword(testId, "pass1234", "newpass99"));
+        assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
+                authService.authenticate(testId, "pass123").getStatus());
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate(testId, "newpass99").getStatus());
+    }
+
+    @Test
+    public void testAdminResetPasswordWorkflow() throws Exception {
+        NetworkService netService = NetworkService.getInstance();
+        AuthService authService = new AuthService();
+        VerificationService verificationService = new VerificationService();
+
+        String testId = uniqueTestId();
+        authService.registerStudent(testId, "Resettable Student", "pass1234", null);
+        assertTrue(verificationService.approveStudent(testId));
+
+        // Weak new password rejected
+        assertThrows(ValidationException.class, () ->
+                netService.adminResetPassword(testId, "short"));
+
+        // Administrator accounts can never be reset this way
+        assertFalse(netService.adminResetPassword("admin", "newadminpass1"));
+
+        // Successful reset: temporary password works, old one is dead
+        assertTrue(netService.adminResetPassword(testId, "tempNew99"));
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate(testId, "tempNew99").getStatus());
+        assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
+                authService.authenticate(testId, "pass123").getStatus());
     }
 }

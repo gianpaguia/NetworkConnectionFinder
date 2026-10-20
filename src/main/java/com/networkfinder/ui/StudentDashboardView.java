@@ -5,6 +5,8 @@ import com.networkfinder.dsa.*;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.AuthService;
+import com.networkfinder.service.ValidationException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -175,7 +177,13 @@ public class StudentDashboardView extends BorderPane {
             showAccountVerificationModal();
         });
 
-        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile, tileVerification));
+        VBox tileSettings = createFluentTile("⚙️", "Settings · Account", "Change password, session, sign out", () -> {
+            windowBackBtn.setVisible(true);
+            windowTitleLbl.setText("Settings > Account");
+            showSettingsPanel();
+        });
+
+        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile, tileVerification, tileSettings));
         tileGrid.getChildren().addAll(allTiles);
 
         // Live search filter on tiles
@@ -262,7 +270,178 @@ public class StudentDashboardView extends BorderPane {
                 "Role: " + currentUser.getRole() + "\n\n" +
                 "Your account is verified and participating in the campus social network graph."
         );
+        UiDialogs.styleDialogPane(alert.getDialogPane());
         alert.showAndWait();
+    }
+
+    // ==================================================
+    // SETTINGS · ACCOUNT (change password, session)
+    // ==================================================
+    private void showSettingsPanel() {
+        windowBackBtn.setVisible(true);
+        windowTitleLbl.setText("Settings > Account");
+
+        VBox mainBox = new VBox(16);
+        mainBox.setPadding(new Insets(20, 36, 30, 36));
+
+        mainBox.getChildren().add(buildSubScreenHeader(
+                "Account Settings",
+                "Manage your sign-in credentials and end your session."
+        ));
+
+        // 1. Account summary card
+        VBox accountCard = new VBox(10);
+        accountCard.getStyleClass().add("card");
+        accountCard.setPadding(new Insets(18, 22, 16, 22));
+
+        HBox identityRow = new HBox(14);
+        identityRow.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane avatarPane = new StackPane();
+        Circle avatarCircle = new Circle(24);
+        avatarCircle.getStyleClass().add("fluent-avatar");
+        Text initials = new Text(getInitials(currentUser.getFullName()));
+        initials.getStyleClass().add("fluent-avatar-text");
+        avatarPane.getChildren().addAll(avatarCircle, initials);
+
+        VBox identityMeta = new VBox(2);
+        Label nameLbl = new Label(currentUser.getFullName());
+        nameLbl.getStyleClass().add("card-title");
+        Label idLbl = new Label("Student ID: " + currentUser.getStudentId());
+        idLbl.getStyleClass().add("helper-text");
+        identityMeta.getChildren().addAll(nameLbl, idLbl);
+
+        Region identitySpacer = new Region();
+        HBox.setHgrow(identitySpacer, Priority.ALWAYS);
+        Label statusBadge = new Label("APPROVED");
+        statusBadge.getStyleClass().add("badge-approved");
+
+        identityRow.getChildren().addAll(avatarPane, identityMeta, identitySpacer, statusBadge);
+
+        Label memberSince = new Label("Member since "
+                + (currentUser.getCreatedAt() != null ? currentUser.getCreatedAt().toLocalDate() : "-"));
+        memberSince.getStyleClass().add("helper-text");
+
+        accountCard.getChildren().addAll(identityRow, memberSince);
+
+        // 2. Change password card
+        VBox passwordCard = new VBox(14);
+        passwordCard.getStyleClass().add("card");
+        passwordCard.setPadding(new Insets(18, 22, 20, 22));
+
+        Label pwTitle = new Label("Change Password");
+        pwTitle.getStyleClass().add("card-title");
+        Label pwHint = new Label("At least 8 characters, with at least one letter and one number.");
+        pwHint.getStyleClass().add("helper-text");
+
+        Label errorLabel = new Label();
+        errorLabel.getStyleClass().add("form-error");
+        errorLabel.setVisible(false);
+        errorLabel.setManaged(false);
+
+        VBox currentBox = new VBox(6);
+        Label currentLbl = new Label("Current Password");
+        currentLbl.getStyleClass().add("field-label");
+        PasswordField currentField = new PasswordField();
+        currentField.setPromptText("Enter your current password");
+        currentBox.getChildren().addAll(currentLbl, currentField);
+
+        VBox newBox = new VBox(6);
+        Label newLbl = new Label("New Password");
+        newLbl.getStyleClass().add("field-label");
+        PasswordField newField = new PasswordField();
+        newField.setPromptText("At least 8 characters, letter + number");
+        newBox.getChildren().addAll(newLbl, newField);
+
+        VBox confirmBox = new VBox(6);
+        Label confirmLbl = new Label("Confirm New Password");
+        confirmLbl.getStyleClass().add("field-label");
+        PasswordField confirmField = new PasswordField();
+        confirmField.setPromptText("Repeat your new password");
+        confirmBox.getChildren().addAll(confirmLbl, confirmField);
+
+        Button saveBtn = new Button("Update Password");
+        saveBtn.getStyleClass().add("button-primary");
+        saveBtn.setMaxWidth(Double.MAX_VALUE);
+
+        Label successLabel = new Label("Your password was updated.");
+        successLabel.setStyle("-fx-text-fill: -fx-green; -fx-font-weight: 600;");
+        successLabel.setVisible(false);
+        successLabel.setManaged(false);
+
+        saveBtn.setOnAction(e -> {
+            errorLabel.setVisible(false);
+            errorLabel.setManaged(false);
+            successLabel.setVisible(false);
+            successLabel.setManaged(false);
+
+            String current = currentField.getText();
+            String next = newField.getText();
+            String confirm = confirmField.getText();
+
+            if (current.isEmpty() || next.isEmpty() || confirm.isEmpty()) {
+                setFormError(errorLabel, "Please fill in all password fields.");
+                return;
+            }
+            if (!next.equals(confirm)) {
+                setFormError(errorLabel, "The new passwords do not match.");
+                return;
+            }
+
+            try {
+                AuthService auth = new AuthService();
+                AuthService.PasswordChangeResult result =
+                        auth.changePassword(currentUser.getStudentId(), current, next);
+                switch (result) {
+                    case SUCCESS:
+                        currentField.clear();
+                        newField.clear();
+                        confirmField.clear();
+                        successLabel.setVisible(true);
+                        successLabel.setManaged(true);
+                        UiDialogs.showSuccess("Your password has been updated. Use it the next time you sign in.");
+                        break;
+                    case WRONG_CURRENT_PASSWORD:
+                        setFormError(errorLabel, "Your current password is incorrect.");
+                        break;
+                    case UNKNOWN_USER:
+                        setFormError(errorLabel, "Account not found. Please sign in again.");
+                        break;
+                    default:
+                        UiDialogs.showError("Could not update the password. Please try again.");
+                        break;
+                }
+            } catch (ValidationException ve) {
+                setFormError(errorLabel, ve.getMessage());
+            }
+        });
+
+        passwordCard.getChildren().addAll(pwTitle, pwHint, errorLabel, currentBox, newBox, confirmBox, saveBtn, successLabel);
+
+        // 3. Session card
+        VBox sessionCard = new VBox(12);
+        sessionCard.getStyleClass().add("card");
+        sessionCard.setPadding(new Insets(18, 22, 20, 22));
+
+        Label sessionTitle = new Label("Session");
+        sessionTitle.getStyleClass().add("card-title");
+        Label sessionDesc = new Label("Signing out returns you to the student login screen. Unconfirmed connection requests stay saved in the network.");
+        sessionDesc.getStyleClass().add("screen-subtitle");
+
+        Button signOutBtn = new Button("Sign out");
+        signOutBtn.getStyleClass().add("button-danger");
+        signOutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
+
+        sessionCard.getChildren().addAll(sessionTitle, sessionDesc, signOutBtn);
+
+        mainBox.getChildren().addAll(accountCard, passwordCard, sessionCard);
+        contentArea.getChildren().setAll(mainBox);
+    }
+
+    private void setFormError(Label errorLabel, String message) {
+        errorLabel.setText(message);
+        errorLabel.setVisible(true);
+        errorLabel.setManaged(true);
     }
 
     private Node buildSubScreenHeader(String title, String subtitle) {
@@ -477,16 +656,22 @@ public class StudentDashboardView extends BorderPane {
                 actionBtn = new Button("✓ Accept Request");
                 actionBtn.getStyleClass().add("button-primary");
                 actionBtn.setOnAction(e -> {
-                    networkService.acceptConnectionRequest(targetId, currentId);
-                    showStudyGroupMatcherScreen();
+                    if (networkService.acceptConnectionRequest(targetId, currentId)) {
+                        showStudyGroupMatcherScreen();
+                    } else {
+                        UiDialogs.showError("Could not accept the request. It may have been withdrawn by the sender.");
+                    }
                 });
             }
         } else {
             actionBtn = new Button("+ Send Request");
             actionBtn.getStyleClass().add("button-primary");
             actionBtn.setOnAction(e -> {
-                networkService.sendConnectionRequest(currentId, targetId);
-                showStudyGroupMatcherScreen();
+                if (networkService.sendConnectionRequest(currentId, targetId)) {
+                    showStudyGroupMatcherScreen();
+                } else {
+                    UiDialogs.showError("Could not send the request. This student may already be connected to you, already have a pending invitation, or is not available.");
+                }
             });
         }
         actionRow.getChildren().add(actionBtn);
@@ -711,16 +896,22 @@ public class StudentDashboardView extends BorderPane {
                 acceptBtn.getStyleClass().add("button-primary");
                 acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 acceptBtn.setOnAction(e -> {
-                    networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
-                    showConnectionsScreen();
+                    if (networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
+                        showConnectionsScreen();
+                    } else {
+                        UiDialogs.showError("Could not accept this request. It may have already been handled.");
+                    }
                 });
 
                 Button declineBtn = new Button("✕ Decline");
                 declineBtn.getStyleClass().add("button-secondary");
                 declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12; -fx-text-fill: -fx-danger;");
                 declineBtn.setOnAction(e -> {
-                    networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
-                    showConnectionsScreen();
+                    if (networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
+                        showConnectionsScreen();
+                    } else {
+                        UiDialogs.showError("Could not decline this request. It may have already been handled.");
+                    }
                 });
 
                 reqRow.getChildren().addAll(sName, sSec, rSpacer, acceptBtn, declineBtn);
@@ -766,8 +957,11 @@ public class StudentDashboardView extends BorderPane {
                 cancelBtn.getStyleClass().add("button-secondary");
                 cancelBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
                 cancelBtn.setOnAction(e -> {
-                    networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId());
-                    showConnectionsScreen();
+                    if (networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId())) {
+                        showConnectionsScreen();
+                    } else {
+                        UiDialogs.showError("Could not cancel this request. It may have already been handled.");
+                    }
                 });
 
                 outRow.getChildren().addAll(sName, sSec, statusLbl, rSpacer, cancelBtn);
@@ -809,8 +1003,11 @@ public class StudentDashboardView extends BorderPane {
         sendReqBtn.setOnAction(e -> {
             StudentNode target = classmatePicker.getValue();
             if (target != null) {
-                networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId());
-                showConnectionsScreen();
+                if (networkService.sendConnectionRequest(currentUser.getStudentId(), target.getStudentId())) {
+                    showConnectionsScreen();
+                } else {
+                    UiDialogs.showError("Could not send the request. This classmate may already be connected to you, already have a pending invitation, or is not available.");
+                }
             }
         });
 
@@ -849,8 +1046,11 @@ public class StudentDashboardView extends BorderPane {
                 disconnectBtn.getStyleClass().add("button-secondary");
                 disconnectBtn.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-danger;");
                 disconnectBtn.setOnAction(e -> {
-                    networkService.removeConnection(currentUser.getStudentId(), nId);
-                    showConnectionsScreen();
+                    if (networkService.removeConnection(currentUser.getStudentId(), nId)) {
+                        showConnectionsScreen();
+                    } else {
+                        UiDialogs.showError("Could not remove this connection.");
+                    }
                 });
 
                 row.getChildren().addAll(name, sec, sp, disconnectBtn);

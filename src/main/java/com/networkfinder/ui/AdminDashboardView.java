@@ -6,12 +6,14 @@ import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
 import com.networkfinder.service.NetworkService;
+import com.networkfinder.service.ValidationException;
 import com.networkfinder.service.VerificationService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -34,13 +36,17 @@ public class AdminDashboardView extends BorderPane {
         getStyleClass().add("fluent-root-pane");
 
         setLeft(buildSidebar());
-        setCenter(contentArea);
+
+        ScrollPane centerScroll = new ScrollPane(contentArea);
+        centerScroll.setFitToWidth(true);
+        centerScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        setCenter(centerScroll);
 
         showVerificationQueueScreen();
     }
 
-    private VBox buildSidebar() {
-        VBox sidebar = new VBox(8);
+    private Node buildSidebar() {
+        BorderPane sidebar = new BorderPane();
         sidebar.getStyleClass().add("sidebar");
 
         Text title = new Text("SOCIAL NETWORK\nCONNECTION FINDER");
@@ -52,7 +58,6 @@ public class AdminDashboardView extends BorderPane {
         VBox titleBox = new VBox(6, title, adminBadge);
         titleBox.setPadding(new Insets(0, 0, 16, 0));
 
-        // Section: User Management
         Label userMgmtLabel = new Label("User management");
         userMgmtLabel.getStyleClass().add("sidebar-section-heading");
 
@@ -69,7 +74,6 @@ public class AdminDashboardView extends BorderPane {
             showAccountsScreen();
         });
 
-        // Section: Network
         Label networkLabel = new Label("Network");
         networkLabel.getStyleClass().add("sidebar-section-heading");
 
@@ -85,22 +89,17 @@ public class AdminDashboardView extends BorderPane {
             showConnectionsManagerScreen();
         });
 
-        // Spacer
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
-
-        // Logout
         Button logoutBtn = new Button("🚪  Logout");
         logoutBtn.getStyleClass().add("nav-button");
         logoutBtn.setStyle("-fx-text-fill: -fx-danger;");
         logoutBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
 
-        sidebar.getChildren().addAll(
-                titleBox,
-                userMgmtLabel, idVerifBtn, accountsBtn,
-                networkLabel, netOverviewBtn, connManagerBtn,
-                spacer, logoutBtn
-        );
+        VBox navBox = new VBox(8, userMgmtLabel, idVerifBtn, accountsBtn, networkLabel, netOverviewBtn, connManagerBtn);
+        VBox logoutBox = new VBox(logoutBtn);
+
+        sidebar.setTop(titleBox);
+        sidebar.setCenter(navBox);
+        sidebar.setBottom(logoutBox);
 
         return sidebar;
     }
@@ -279,7 +278,10 @@ public class AdminDashboardView extends BorderPane {
         Button approveBtn = new Button("✓ APPROVE");
         approveBtn.getStyleClass().add("button-primary");
         approveBtn.setOnAction(e -> {
-            verificationService.approveStudent(user.getStudentId());
+            if (!verificationService.approveStudent(user.getStudentId())) {
+                UiDialogs.showError("Could not approve this student. Please try again.");
+                return;
+            }
             networkService.reloadGraph();
             showVerificationQueueScreen();
         });
@@ -287,7 +289,10 @@ public class AdminDashboardView extends BorderPane {
         Button rejectBtn = new Button("✕ REJECT");
         rejectBtn.getStyleClass().add("button-danger");
         rejectBtn.setOnAction(e -> {
-            verificationService.rejectStudent(user.getStudentId());
+            if (!verificationService.rejectStudent(user.getStudentId())) {
+                UiDialogs.showError("Could not reject this student. Please try again.");
+                return;
+            }
             showVerificationQueueScreen();
         });
 
@@ -420,8 +425,9 @@ public class AdminDashboardView extends BorderPane {
         TableColumn<User, Void> actionCol = new TableColumn<>("Actions");
         actionCol.setCellFactory(col -> new TableCell<>() {
             private final Button editBtn = new Button("Edit");
+            private final Button resetBtn = new Button("Reset PW");
             private final Button delBtn = new Button("Delete");
-            private final HBox btnBox = new HBox(6, editBtn, delBtn);
+            private final HBox btnBox = new HBox(6, editBtn, resetBtn, delBtn);
 
             {
                 btnBox.setAlignment(Pos.CENTER);
@@ -430,6 +436,13 @@ public class AdminDashboardView extends BorderPane {
                 editBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     showEditStudentDialog(u);
+                });
+
+                resetBtn.getStyleClass().add("button-secondary");
+                resetBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                resetBtn.setOnAction(e -> {
+                    User u = getTableView().getItems().get(getIndex());
+                    showResetPasswordDialog(u);
                 });
 
                 delBtn.getStyleClass().add("button-secondary");
@@ -470,6 +483,7 @@ public class AdminDashboardView extends BorderPane {
         Dialog<Boolean> dialog = new Dialog<>();
         dialog.setTitle("Add New Student");
         dialog.setHeaderText("Create and instantly verify a new student node in the network graph");
+        UiDialogs.styleDialogPane(dialog.getDialogPane());
 
         ButtonType saveBtnType = new ButtonType("Add Student", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveBtnType, ButtonType.CANCEL);
@@ -509,6 +523,8 @@ public class AdminDashboardView extends BorderPane {
 
         dialog.getDialogPane().setContent(grid);
 
+        java.util.concurrent.atomic.AtomicReference<String> validationError = new java.util.concurrent.atomic.AtomicReference<>(null);
+
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveBtnType) {
                 String sId = idField.getText().trim();
@@ -518,7 +534,12 @@ public class AdminDashboardView extends BorderPane {
                 String sSec = sectionField.getText().trim();
 
                 if (!sId.isEmpty() && !sName.isEmpty()) {
-                    return networkService.adminAddStudent(sId, sName, sCourse, sYear, sSec);
+                    try {
+                        return networkService.adminAddStudent(sId, sName, sCourse, sYear, sSec);
+                    } catch (ValidationException ve) {
+                        validationError.set(ve.getMessage());
+                        return false;
+                    }
                 }
             }
             return false;
@@ -527,6 +548,10 @@ public class AdminDashboardView extends BorderPane {
         dialog.showAndWait().ifPresent(success -> {
             if (success) {
                 showAccountsScreen();
+            } else if (validationError.get() != null) {
+                UiDialogs.showError(validationError.get());
+            } else {
+                UiDialogs.showError("Could not add the student. The Student ID may already exist or some fields are invalid.");
             }
         });
     }
@@ -535,6 +560,7 @@ public class AdminDashboardView extends BorderPane {
         Dialog<Boolean> dialog = new Dialog<>();
         dialog.setTitle("Edit Student - " + user.getStudentId());
         dialog.setHeaderText("Modify student information and academic attributes");
+        UiDialogs.styleDialogPane(dialog.getDialogPane());
 
         ButtonType saveBtnType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveBtnType, ButtonType.CANCEL);
@@ -573,6 +599,8 @@ public class AdminDashboardView extends BorderPane {
 
         dialog.getDialogPane().setContent(grid);
 
+        java.util.concurrent.atomic.AtomicReference<String> validationError = new java.util.concurrent.atomic.AtomicReference<>(null);
+
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveBtnType) {
                 String sName = nameField.getText().trim();
@@ -580,7 +608,12 @@ public class AdminDashboardView extends BorderPane {
                 String sYear = yearCombo.getValue();
                 String sSec = sectionField.getText().trim();
                 if (!sName.isEmpty()) {
-                    return networkService.adminEditStudent(user.getStudentId(), sName, sCourse, sYear, sSec);
+                    try {
+                        return networkService.adminEditStudent(user.getStudentId(), sName, sCourse, sYear, sSec);
+                    } catch (ValidationException ve) {
+                        validationError.set(ve.getMessage());
+                        return false;
+                    }
                 }
             }
             return false;
@@ -589,19 +622,81 @@ public class AdminDashboardView extends BorderPane {
         dialog.showAndWait().ifPresent(success -> {
             if (success) {
                 showAccountsScreen();
+            } else if (validationError.get() != null) {
+                UiDialogs.showError(validationError.get());
+            } else {
+                UiDialogs.showError("Could not save changes. Please review the fields and try again.");
             }
         });
     }
 
+    /**
+     * Admin can hand out temporary passwords to students who lost theirs
+     * (the app's recovery path). Input rules are enforced by the service and
+     * surfaced through a themed error dialog.
+     */
+    private void showResetPasswordDialog(User user) {
+        Dialog<Boolean> dialog = new Dialog<>();
+        dialog.setTitle("Reset Password - " + user.getStudentId());
+        dialog.setHeaderText("Set a temporary password for " + user.getFullName());
+        UiDialogs.styleDialogPane(dialog.getDialogPane());
+
+        ButtonType resetBtnType = new ButtonType("Set Password", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(resetBtnType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(12);
+        grid.setVgap(12);
+        grid.setPadding(new Insets(20, 20, 10, 10));
+
+        TextField passwordField = new TextField();
+        passwordField.setPromptText("At least 8 characters, letter + number");
+        passwordField.setPrefColumnCount(22);
+
+        Label hintLabel = new Label("Give this temporary password to the student. They can change it on their Account Settings page.");
+        hintLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft; -fx-wrap-text: true;");
+
+        grid.addRow(0, new Label("Temporary Password:"), passwordField);
+
+        VBox contentBox = new VBox(10, grid, hintLabel);
+        dialog.getDialogPane().setContent(contentBox);
+
+        java.util.concurrent.atomic.AtomicReference<String> validationError = new java.util.concurrent.atomic.AtomicReference<>(null);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == resetBtnType) {
+                try {
+                    return networkService.adminResetPassword(user.getStudentId(), passwordField.getText());
+                } catch (ValidationException ve) {
+                    validationError.set(ve.getMessage());
+                    return false;
+                }
+            }
+            return false;
+        });
+
+        dialog.showAndWait().ifPresent(success -> {
+            if (success) {
+                UiDialogs.showSuccess("The password for " + user.getStudentId() + " was reset. Sign-in with the temporary password now works.");
+            } else if (validationError.get() != null) {
+                UiDialogs.showError(validationError.get());
+            } else {
+                UiDialogs.showError("Could not reset the password for this account.");
+            }
+        });
+    }
     private void confirmDeleteStudent(User user) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Delete Student");
         alert.setHeaderText("Remove " + user.getFullName() + " (" + user.getStudentId() + ")");
         alert.setContentText("Are you sure you want to permanently delete this student? All of their incident connections, profile data, and graph vertex entries will be removed.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
 
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                networkService.adminDeleteStudent(user.getStudentId());
+                if (!networkService.adminDeleteStudent(user.getStudentId())) {
+                    UiDialogs.showError("Could not delete this student. Administrator accounts cannot be removed here.");
+                }
                 showAccountsScreen();
             }
         });
@@ -649,7 +744,10 @@ public class AdminDashboardView extends BorderPane {
             com.networkfinder.dsa.StudentNode n1 = s1Combo.getValue();
             com.networkfinder.dsa.StudentNode n2 = s2Combo.getValue();
             if (n1 != null && n2 != null && !n1.getStudentId().equals(n2.getStudentId())) {
-                networkService.addConnection(n1.getStudentId(), n2.getStudentId());
+                if (!networkService.addConnection(n1.getStudentId(), n2.getStudentId())) {
+                    UiDialogs.showError("Could not create the edge. Both students must be verified and distinct.");
+                    return;
+                }
                 showConnectionsManagerScreen();
             }
         });
@@ -692,8 +790,11 @@ public class AdminDashboardView extends BorderPane {
                 delBtn.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 11px;");
                 delBtn.setOnAction(e -> {
                     String[] pair = getTableView().getItems().get(getIndex());
-                    networkService.removeConnection(pair[0], pair[1]);
-                    showConnectionsManagerScreen();
+                    if (networkService.removeConnection(pair[0], pair[1])) {
+                        showConnectionsManagerScreen();
+                    } else {
+                        UiDialogs.showError("Could not remove this connection.");
+                    }
                 });
             }
 

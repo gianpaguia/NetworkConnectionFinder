@@ -1,13 +1,18 @@
 package com.networkfinder.service;
 
 import com.networkfinder.database.ConnectionDao;
+import com.networkfinder.database.DatabaseManager;
 import com.networkfinder.database.ProfileDao;
 import com.networkfinder.database.UserDao;
 import com.networkfinder.dsa.*;
 import com.networkfinder.model.ConnectionStatus;
+import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
+import com.networkfinder.model.VerificationStatus;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 
 public class NetworkService {
@@ -80,6 +85,9 @@ public class NetworkService {
     }
 
     public synchronized boolean addConnection(String student1, String student2) {
+        if (!isValidConnectionPair(student1, student2)) {
+            return false;
+        }
         boolean dbSuccess = connectionDao.addConnection(student1, student2, ConnectionStatus.ACCEPTED);
         if (dbSuccess) {
             graph.addEdge(student1, student2);
@@ -100,7 +108,26 @@ public class NetworkService {
     }
 
     public synchronized boolean sendConnectionRequest(String requesterId, String receiverId) {
+        if (!isValidConnectionPair(requesterId, receiverId)) {
+            return false;
+        }
+        if (connectionDao.getConnectionBetween(requesterId, receiverId) != null) {
+            return false;
+        }
         return connectionDao.addConnection(requesterId, receiverId, ConnectionStatus.PENDING);
+    }
+
+    private boolean isValidConnectionPair(String id1, String id2) {
+        if (id1 == null || id2 == null || id1.equals(id2)) {
+            return false;
+        }
+        User user1 = userDao.getUserById(id1);
+        User user2 = userDao.getUserById(id2);
+        if (user1 == null || user2 == null) {
+            return false;
+        }
+        return user1.getRole() == Role.STUDENT && user1.getVerificationStatus() == VerificationStatus.APPROVED
+                && user2.getRole() == Role.STUDENT && user2.getVerificationStatus() == VerificationStatus.APPROVED;
     }
 
     public synchronized boolean acceptConnectionRequest(String requesterId, String receiverId) {
@@ -131,47 +158,114 @@ public class NetworkService {
     // ADMIN DATA MANAGEMENT & INTEGRITY METHODS
     // ==================================================
 
-    public synchronized boolean adminAddStudent(String studentId, String fullName, String course, String yearLevel, String section) {
-        if (studentId == null || fullName == null || userDao.getUserById(studentId) != null) {
-            return false;
+    /**
+     * Admin-only manual student creation. Input is validated by the service
+     * regardless of what the dialog allowed; validation failures throw
+     * {@link ValidationException} with a presentable message. Returns false
+     * only for storage-level failure.
+     */
+    public synchronized boolean adminAddStudent(String studentId, String fullName, String course,
+                                                String yearLevel, String section) throws ValidationException {
+        String idError = InputValidator.checkStudentId(studentId);
+        if (idError != null) {
+            throw new ValidationException(idError);
         }
-        String passwordHash = com.networkfinder.database.DatabaseManager.hashPassword("password123");
+        String nameError = InputValidator.checkFullName(fullName);
+        if (nameError != null) {
+            throw new ValidationException(nameError);
+        }
+        String courseError = InputValidator.checkCourse(course);
+        if (courseError != null) {
+            throw new ValidationException(courseError);
+        }
+        String sectionError = InputValidator.checkSection(section);
+        if (sectionError != null) {
+            throw new ValidationException(sectionError);
+        }
+        if (userDao.getUserById(studentId) != null) {
+            throw new ValidationException("This Student ID is already registered.");
+        }
+
+        String cleanId = studentId.trim();
+        String cleanName = fullName.trim();
+        String cleanCourse = course == null ? "" : course.trim();
+        String cleanSection = section == null ? "" : section.trim();
+
+        String passwordHash = DatabaseManager.hashPassword(DatabaseManager.DEFAULT_DEMO_PASSWORD);
         User user = new User(
-                studentId, fullName, passwordHash, null,
-                com.networkfinder.model.Role.STUDENT,
-                com.networkfinder.model.VerificationStatus.APPROVED,
+                cleanId, cleanName, passwordHash, null,
+                Role.STUDENT,
+                VerificationStatus.APPROVED,
                 true,
                 java.time.LocalDateTime.now()
         );
-        boolean created = userDao.createUser(user);
-        if (!created) return false;
-
         StudentProfile profile = new StudentProfile(
-                studentId, course, yearLevel, section,
+                cleanId, cleanCourse, yearLevel, cleanSection,
                 new java.util.ArrayList<>(), new java.util.ArrayList<>(), "Small Group",
                 new java.util.ArrayList<>(), ""
         );
-        profileDao.saveOrUpdateProfile(profile);
 
-        StudentNode node = new StudentNode(studentId, fullName, profile);
+        boolean created;
+        try (Connection conn = DatabaseManager.getInstance().getConnection()) {
+            boolean previousAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try {
+                created = userDao.createUser(user, conn) && profileDao.saveOrUpdateProfile(profile, conn);
+                if (created) {
+                    conn.commit();
+                } else {
+                    conn.rollback();
+                }
+            } catch (SQLException rollbackEx) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ignoredRollback) {
+                }
+                created = false;
+            } finally {
+                conn.setAutoCommit(previousAutoCommit);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+        if (!created) {
+            return false;
+        }
+
+        StudentNode node = new StudentNode(cleanId, cleanName, profile);
         graph.addVertex(node);
         return true;
     }
 
-    public synchronized boolean adminEditStudent(String studentId, String fullName, String course, String yearLevel, String section) {
+    public synchronized boolean adminEditStudent(String studentId, String fullName, String course,
+                                                 String yearLevel, String section) throws ValidationException {
+        String nameError = InputValidator.checkFullName(fullName);
+        if (nameError != null) {
+            throw new ValidationException(nameError);
+        }
+        String courseError = InputValidator.checkCourse(course);
+        if (courseError != null) {
+            throw new ValidationException(courseError);
+        }
+        String sectionError = InputValidator.checkSection(section);
+        if (sectionError != null) {
+            throw new ValidationException(sectionError);
+        }
+
         User user = userDao.getUserById(studentId);
         if (user == null) return false;
 
-        userDao.updateStudentInfo(studentId, fullName);
+        userDao.updateStudentInfo(studentId, fullName.trim());
 
         StudentProfile profile = profileDao.getProfile(studentId);
         if (profile == null) {
             profile = new StudentProfile();
             profile.setStudentId(studentId);
         }
-        profile.setCourse(course);
+        profile.setCourse(course == null ? "" : course.trim());
         profile.setYearLevel(yearLevel);
-        profile.setSection(section);
+        profile.setSection(section == null ? "" : section.trim());
         profileDao.saveOrUpdateProfile(profile);
 
         StudentNode existingNode = graph.getNode(studentId);
@@ -183,11 +277,38 @@ public class NetworkService {
     }
 
     public synchronized boolean adminDeleteStudent(String studentId) {
-        if (studentId == null) return false;
+        if (studentId == null) {
+            return false;
+        }
+        User user = userDao.getUserById(studentId);
+        if (user == null || user.getRole() == Role.ADMIN) {
+            return false;
+        }
         boolean deleted = userDao.deleteUser(studentId);
         profileDao.deleteProfile(studentId);
         graph.removeVertex(studentId);
         return deleted;
+    }
+
+    /**
+     * Admin-initiated password reset (the recovery path for forgotten
+     * passwords). Admin accounts are protected; the new password is enforced
+     * by the shared rules. Throws {@link ValidationException} for bad input,
+     * returns false only for unknown targets/storage failure.
+     */
+    public synchronized boolean adminResetPassword(String studentId, String newPassword) throws ValidationException {
+        String passwordError = InputValidator.checkPassword(newPassword);
+        if (passwordError != null) {
+            throw new ValidationException(passwordError);
+        }
+        if (studentId == null) {
+            return false;
+        }
+        User user = userDao.getUserById(studentId.trim());
+        if (user == null || user.getRole() == Role.ADMIN) {
+            return false;
+        }
+        return userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(newPassword));
     }
 
     public synchronized void adminResetDataset() {

@@ -17,11 +17,20 @@ public class UserDao {
     }
 
     public boolean createUser(User user) {
+        try (Connection conn = db.getConnection()) {
+            return createUser(user, conn);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean createUser(User user, Connection conn) {
         String sql = """
             INSERT INTO users (student_id, full_name, password_hash, id_card_image_path, role, verification_status, profile_completed, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """;
-        try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getStudentId());
             stmt.setString(2, user.getFullName());
             stmt.setString(3, user.getPasswordHash());
@@ -95,6 +104,18 @@ public class UserDao {
         String sql = "UPDATE users SET verification_status = ? WHERE student_id = ?;";
         try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, status.name());
+            stmt.setString(2, studentId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean updatePasswordHash(String studentId, String passwordHash) {
+        String sql = "UPDATE users SET password_hash = ? WHERE student_id = ? AND role <> 'ADMIN';";
+        try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, passwordHash);
             stmt.setString(2, studentId);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {

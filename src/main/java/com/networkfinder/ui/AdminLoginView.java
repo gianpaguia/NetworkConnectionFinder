@@ -27,13 +27,12 @@ public class AdminLoginView extends StackPane {
 
         VBox formPanel = new VBox(20);
         formPanel.setAlignment(Pos.CENTER);
-        formPanel.setMaxWidth(440);
         formPanel.setPadding(new Insets(30));
         HBox.setHgrow(formPanel, Priority.ALWAYS);
 
         VBox container = new VBox(20);
-        container.setAlignment(Pos.CENTER_LEFT);
-        container.setMaxWidth(420);
+        container.setAlignment(Pos.CENTER);
+        container.setMaxWidth(560);
 
         VBox headerBox = new VBox(6);
         headerBox.setAlignment(Pos.CENTER_LEFT);
@@ -54,7 +53,7 @@ public class AdminLoginView extends StackPane {
         cardHeading.getStyleClass().add("card-title");
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-weight: 500; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
         errorLabel.setWrapText(true);
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
@@ -63,14 +62,14 @@ public class AdminLoginView extends StackPane {
         Label userLabel = new Label("Admin Username");
         userLabel.getStyleClass().add("field-label");
         TextField userField = new TextField();
-        userField.setPromptText("Enter username (default: admin)");
+        userField.setPromptText("Enter your administrator username");
         userBox.getChildren().addAll(userLabel, userField);
 
         VBox passBox = new VBox(6);
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
         PasswordField passField = new PasswordField();
-        passField.setPromptText("Enter password (default: admin123)");
+        passField.setPromptText("Enter your password");
         passBox.getChildren().addAll(passLabel, passField);
 
         Button loginBtn = new Button("Sign in");

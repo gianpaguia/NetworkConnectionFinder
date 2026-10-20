@@ -19,6 +19,15 @@ public class ProfileDao {
     }
 
     public boolean saveOrUpdateProfile(StudentProfile profile) {
+        try (Connection conn = db.getConnection()) {
+            return saveOrUpdateProfile(profile, conn);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean saveOrUpdateProfile(StudentProfile profile, Connection conn) {
         String sql = """
             INSERT INTO profiles (student_id, course, year_level, section, subjects, study_habits, group_size, interests, other_interests)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -33,7 +42,7 @@ public class ProfileDao {
                 other_interests = excluded.other_interests;
         """;
 
-        try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, profile.getStudentId());
             stmt.setString(2, profile.getCourse());
             stmt.setString(3, profile.getYearLevel());

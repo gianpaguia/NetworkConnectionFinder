@@ -17,6 +17,8 @@ public class DatabaseManager {
     private static final String UPLOADS_DIR = DB_DIR + File.separator + "uploads";
     private static final String DB_URL = "jdbc:sqlite:" + DB_PATH;
 
+    public static final String DEFAULT_DEMO_PASSWORD = "password123";
+
     /**
      * Resolves the project root directory by locating the compiled class file
      * and walking up the directory tree until pom.xml is found.

@@ -32,13 +32,12 @@ public class LoginView extends StackPane {
 
         VBox formPanel = new VBox(20);
         formPanel.setAlignment(Pos.CENTER);
-        formPanel.setMaxWidth(440);
         formPanel.setPadding(new Insets(30));
         HBox.setHgrow(formPanel, Priority.ALWAYS);
 
         VBox container = new VBox(20);
         container.setAlignment(Pos.CENTER);
-        container.setMaxWidth(420);
+        container.setMaxWidth(560);
 
         VBox headerBox = new VBox(6);
         headerBox.setAlignment(Pos.CENTER_LEFT);
@@ -59,7 +58,7 @@ public class LoginView extends StackPane {
         cardHeading.getStyleClass().add("card-title");
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-weight: 500; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
         errorLabel.setWrapText(true);
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
@@ -131,7 +130,9 @@ public class LoginView extends StackPane {
                 case SUCCESS -> {
                     User user = result.getUser();
                     if (user.getRole() == Role.ADMIN) {
-                        ScreenNavigator.showAdminDashboard();
+                        errorLabel.setText("Administrator accounts must sign in through the Admin Portal.");
+                        errorLabel.setVisible(true);
+                        errorLabel.setManaged(true);
                     } else {
                         StudentProfile profile = profileDao.getProfile(user.getStudentId());
                         if (user.isProfileCompleted() && profile != null) {
@@ -170,7 +171,7 @@ public class LoginView extends StackPane {
         card.getChildren().addAll(cardHeading, errorLabel, idBox, passBox, loginBtn, registerBox, helperBox);
 
         Button adminBtn = new Button("Admin Portal");
-        adminBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: -fx-ink-soft; -fx-font-size: 12px; -fx-font-weight: 500; -fx-cursor: hand;");
+        adminBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: -fx-ink-soft; -fx-font-size: 14px; -fx-font-weight: 500; -fx-cursor: hand;");
         adminBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
 
         container.getChildren().addAll(headerBox, card, adminBtn);

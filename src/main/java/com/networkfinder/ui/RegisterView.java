@@ -2,6 +2,7 @@ package com.networkfinder.ui;
 
 import com.networkfinder.model.User;
 import com.networkfinder.service.AuthService;
+import com.networkfinder.service.ValidationException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -15,6 +16,7 @@ import java.io.File;
 public class RegisterView extends StackPane {
     private final AuthService authService = new AuthService();
     private File selectedIdFile = null;
+    private Label errorLabel;
 
     public RegisterView() {
         setAlignment(Pos.CENTER);
@@ -33,12 +35,11 @@ public class RegisterView extends StackPane {
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        scrollPane.setMaxWidth(520);
         HBox.setHgrow(scrollPane, Priority.ALWAYS);
 
         VBox container = new VBox(16);
         container.setAlignment(Pos.CENTER_LEFT);
-        container.setMaxWidth(480);
+        container.setMaxWidth(560);
         container.setPadding(new Insets(30, 24, 30, 24));
 
         VBox titleBox = new VBox(4);
@@ -52,7 +53,9 @@ public class RegisterView extends StackPane {
         card.getStyleClass().add("card");
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-weight: 500; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
+        errorLabel.setWrapText(true);
+        this.errorLabel = errorLabel;
         errorLabel.setWrapText(true);
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
@@ -152,30 +155,17 @@ public class RegisterView extends StackPane {
             String confirm = confirmPassField.getText();
 
             if (studentId.isEmpty() || name.isEmpty() || pass.isEmpty()) {
-                errorLabel.setText("Please fill in all required fields.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                showError("Please fill in all required fields.");
                 return;
             }
 
             if (!pass.equals(confirm)) {
-                errorLabel.setText("Passwords do not match.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                showError("Passwords do not match.");
                 return;
             }
 
             if (selectedIdFile == null) {
-                errorLabel.setText("Please upload a clear picture of your Student ID for administrator verification.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
-                return;
-            }
-
-            if (authService.isStudentIdRegistered(studentId)) {
-                errorLabel.setText("An account with this Student ID already exists.");
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                showError("Please upload a clear picture of your Student ID for administrator verification.");
                 return;
             }
 
@@ -184,14 +174,12 @@ public class RegisterView extends StackPane {
                 if (created != null) {
                     ScreenNavigator.showRegistrationSubmitted(created);
                 } else {
-                    errorLabel.setText("Failed to create account. Please try again.");
-                    errorLabel.setVisible(true);
-                    errorLabel.setManaged(true);
+                    showError("Failed to create account. Please try again.");
                 }
+            } catch (ValidationException ve) {
+                showError(ve.getMessage());
             } catch (Exception ex) {
-                errorLabel.setText("Error saving account: " + ex.getMessage());
-                errorLabel.setVisible(true);
-                errorLabel.setManaged(true);
+                showError("Error saving account: " + ex.getMessage());
             }
         });
 
@@ -207,9 +195,18 @@ public class RegisterView extends StackPane {
         card.getChildren().addAll(errorLabel, idBox, nameBox, passBox, confirmPassBox, verifSection, submitBtn, loginBox);
         container.getChildren().addAll(titleBox, card);
 
-        scrollPane.setContent(container);
+        StackPane centeredWrap = new StackPane(container);
+        centeredWrap.setAlignment(Pos.CENTER);
+
+        scrollPane.setContent(centeredWrap);
 
         split.getChildren().addAll(heroPanel, scrollPane);
         getChildren().add(split);
+    }
+
+    private void showError(String message) {
+        errorLabel.setText(message);
+        errorLabel.setVisible(true);
+        errorLabel.setManaged(true);
     }
 }

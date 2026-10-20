@@ -189,7 +189,6 @@ public class ProfileWizardView extends StackPane {
             Button yBtn = new Button(yr);
             boolean isSel = yr.equals(selectedYear);
             yBtn.getStyleClass().add(isSel ? "selectable-card-selected" : "selectable-card");
-            yBtn.setStyle("-fx-text-fill: " + (isSel ? "#60CDFF;" : "#FFFFFF;") + " -fx-font-weight: 600;");
             HBox.setHgrow(yBtn, Priority.ALWAYS);
             yBtn.setMaxWidth(Double.MAX_VALUE);
             yBtn.setOnAction(e -> {
@@ -237,7 +236,7 @@ public class ProfileWizardView extends StackPane {
         inputSection.getChildren().addAll(secLabel, secField);
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
 
@@ -300,7 +299,6 @@ public class ProfileWizardView extends StackPane {
             Button chip = new Button(sub);
             boolean selected = selectedSubjects.contains(sub);
             chip.getStyleClass().add(selected ? "chip-selected" : "chip");
-            chip.setStyle("-fx-text-fill: " + (selected ? "#60CDFF;" : "#E2E8F0;") + " -fx-font-weight: " + (selected ? "700;" : "500;"));
             chip.setOnAction(e -> {
                 if (selectedSubjects.contains(sub)) {
                     selectedSubjects.remove(sub);
@@ -313,7 +311,7 @@ public class ProfileWizardView extends StackPane {
         }
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
 
@@ -381,7 +379,6 @@ public class ProfileWizardView extends StackPane {
             Button hBtn = new Button(label);
             boolean selected = selectedHabits.contains(val);
             hBtn.getStyleClass().add(selected ? "selectable-card-selected" : "selectable-card");
-            hBtn.setStyle("-fx-text-fill: " + (selected ? "#60CDFF;" : "#FFFFFF;") + " -fx-font-weight: 600;");
             hBtn.setPrefWidth(280);
             hBtn.setOnAction(e -> {
                 if (selectedHabits.contains(val)) selectedHabits.remove(val);
@@ -417,9 +414,9 @@ public class ProfileWizardView extends StackPane {
             HBox.setHgrow(card, Priority.ALWAYS);
 
             Label titleL = new Label(title);
-            titleL.setStyle("-fx-font-weight: 700; -fx-text-fill: " + (selected ? "#60CDFF;" : "#FFFFFF;"));
+            titleL.getStyleClass().add(selected ? "selectable-card-title-selected" : "selectable-card-title");
             Label descL = new Label(desc);
-            descL.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
+            descL.getStyleClass().add("selectable-card-desc");
             card.getChildren().addAll(titleL, descL);
 
             card.setOnMouseClicked(e -> {
@@ -482,7 +479,6 @@ public class ProfileWizardView extends StackPane {
             Button chip = new Button(item);
             boolean selected = selectedInterests.contains(item);
             chip.getStyleClass().add(selected ? "chip-selected" : "chip");
-            chip.setStyle("-fx-text-fill: " + (selected ? "#60CDFF;" : "#E2E8F0;") + " -fx-font-weight: " + (selected ? "700;" : "500;"));
             chip.setOnAction(e -> {
                 if (selectedInterests.contains(item)) selectedInterests.remove(item);
                 else selectedInterests.add(item);

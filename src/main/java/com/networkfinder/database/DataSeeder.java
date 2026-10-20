@@ -72,7 +72,7 @@ public class DataSeeder {
     }
 
     private static void seedStudents(UserDao userDao, ProfileDao profileDao, ConnectionDao connDao) {
-        String defaultPass = DatabaseManager.hashPassword("password123");
+        String defaultPass = DatabaseManager.hashPassword(DatabaseManager.DEFAULT_DEMO_PASSWORD);
 
         // Student 1: Juan Dela Cruz
         createStudent(userDao, profileDao,
