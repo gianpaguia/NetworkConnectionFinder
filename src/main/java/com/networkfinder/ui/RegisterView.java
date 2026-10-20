@@ -56,7 +56,6 @@ public class RegisterView extends StackPane {
         errorLabel.getStyleClass().add("form-error");
         errorLabel.setWrapText(true);
         this.errorLabel = errorLabel;
-        errorLabel.setWrapText(true);
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
 
@@ -64,28 +63,57 @@ public class RegisterView extends StackPane {
         Label idLabel = new Label("Student ID");
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
-        idField.setPromptText("Enter Student ID (e.g. 2026-12345)");
+        idField.setPromptText("Numbers only (e.g. 202612345)");
         idBox.getChildren().addAll(idLabel, idField);
 
-        VBox nameBox = new VBox(4);
-        Label nameLabel = new Label("Full Name");
-        nameLabel.getStyleClass().add("field-label");
-        TextField nameField = new TextField();
-        nameField.setPromptText("Enter Full Name");
-        nameBox.getChildren().addAll(nameLabel, nameField);
+        // Row 1: First Name + Surname (both required)
+        HBox requiredNamesRow = new HBox(12);
+        VBox firstNameBox = new VBox(4);
+        Label firstNameLabel = new Label("First Name");
+        firstNameLabel.getStyleClass().add("field-label");
+        TextField firstNameField = new TextField();
+        firstNameField.setPromptText("e.g. Juan");
+        firstNameBox.getChildren().addAll(firstNameLabel, firstNameField);
+
+        VBox surnameBox = new VBox(4);
+        Label surnameLabel = new Label("Surname");
+        surnameLabel.getStyleClass().add("field-label");
+        TextField surnameField = new TextField();
+        surnameField.setPromptText("e.g. Dela Cruz");
+        surnameBox.getChildren().addAll(surnameLabel, surnameField);
+        firstNameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+        surnameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+        requiredNamesRow.getChildren().addAll(firstNameBox, surnameBox);
+
+        // Row 2: Middle Initial + Suffix (both optional)
+        HBox optionalNamesRow = new HBox(12);
+        VBox middleBox = new VBox(4);
+        Label middleLabel = new Label("Middle Initial (Optional)");
+        middleLabel.getStyleClass().add("field-label");
+        TextField middleField = new TextField();
+        middleField.setPromptText("e.g. M.");
+        middleBox.getChildren().addAll(middleLabel, middleField);
+
+        VBox suffixBox = new VBox(4);
+        Label suffixLabel = new Label("Suffix (Optional)");
+        suffixLabel.getStyleClass().add("field-label");
+        TextField suffixField = new TextField();
+        suffixField.setPromptText("e.g. Jr.");
+        suffixBox.getChildren().addAll(suffixLabel, suffixField);
+        middleBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+        suffixBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+        optionalNamesRow.getChildren().addAll(middleBox, suffixBox);
 
         VBox passBox = new VBox(4);
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
-        PasswordField passField = new PasswordField();
-        passField.setPromptText("Create Password");
+        PasswordRevealField passField = new PasswordRevealField("Create Password");
         passBox.getChildren().addAll(passLabel, passField);
 
         VBox confirmPassBox = new VBox(4);
         Label confirmPassLabel = new Label("Confirm Password");
         confirmPassLabel.getStyleClass().add("field-label");
-        PasswordField confirmPassField = new PasswordField();
-        confirmPassField.setPromptText("Confirm Password");
+        PasswordRevealField confirmPassField = new PasswordRevealField("Confirm Password");
         confirmPassBox.getChildren().addAll(confirmPassLabel, confirmPassField);
 
         VBox verifSection = new VBox(8);
@@ -128,16 +156,26 @@ public class RegisterView extends StackPane {
             );
             File file = chooser.showOpenDialog(ScreenNavigator.getPrimaryStage());
             if (file != null) {
+                String imageError = AuthService.validateIdCardImage(file);
+                if (imageError != null) {
+                    showError(imageError);
+                    resetUploadSelection(uploadText, formatText, previewImage);
+                    return;
+                }
+
+                Image img = new Image(file.toURI().toString());
+                if (img.isError()) {
+                    showError("This file is not a readable image. Please choose a different file.");
+                    resetUploadSelection(uploadText, formatText, previewImage);
+                    return;
+                }
+
                 selectedIdFile = file;
                 uploadText.setText("Selected: " + file.getName());
                 formatText.setText(String.format("%.1f KB", file.length() / 1024.0));
-                try {
-                    Image img = new Image(file.toURI().toString());
-                    previewImage.setImage(img);
-                    previewImage.setVisible(true);
-                    previewImage.setManaged(true);
-                } catch (Exception ignored) {
-                }
+                previewImage.setImage(img);
+                previewImage.setVisible(true);
+                previewImage.setManaged(true);
             }
         });
 
@@ -150,11 +188,14 @@ public class RegisterView extends StackPane {
 
         submitBtn.setOnAction(e -> {
             String studentId = idField.getText().trim();
-            String name = nameField.getText().trim();
-            String pass = passField.getText();
-            String confirm = confirmPassField.getText();
+            String firstName = firstNameField.getText().trim();
+            String middleInitial = middleField.getText().trim();
+            String surname = surnameField.getText().trim();
+            String suffix = suffixField.getText().trim();
+            String pass = passField.getValue();
+            String confirm = confirmPassField.getValue();
 
-            if (studentId.isEmpty() || name.isEmpty() || pass.isEmpty()) {
+            if (studentId.isEmpty() || firstName.isEmpty() || surname.isEmpty() || pass.isEmpty()) {
                 showError("Please fill in all required fields.");
                 return;
             }
@@ -170,7 +211,8 @@ public class RegisterView extends StackPane {
             }
 
             try {
-                User created = authService.registerStudent(studentId, name, pass, selectedIdFile);
+                User created = authService.registerStudent(studentId, firstName, middleInitial,
+                        surname, suffix, pass, selectedIdFile);
                 if (created != null) {
                     ScreenNavigator.showRegistrationSubmitted(created);
                 } else {
@@ -192,7 +234,7 @@ public class RegisterView extends StackPane {
         loginLink.setOnAction(e -> ScreenNavigator.showStudentLogin());
         loginBox.getChildren().addAll(already, loginLink);
 
-        card.getChildren().addAll(errorLabel, idBox, nameBox, passBox, confirmPassBox, verifSection, submitBtn, loginBox);
+        card.getChildren().addAll(errorLabel, idBox, requiredNamesRow, optionalNamesRow, passBox, confirmPassBox, verifSection, submitBtn, loginBox);
         container.getChildren().addAll(titleBox, card);
 
         StackPane centeredWrap = new StackPane(container);
@@ -208,5 +250,14 @@ public class RegisterView extends StackPane {
         errorLabel.setText(message);
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
+    }
+
+    private void resetUploadSelection(Label uploadText, Label formatText, ImageView previewImage) {
+        selectedIdFile = null;
+        uploadText.setText("Upload Student ID");
+        formatText.setText("JPG or PNG");
+        previewImage.setImage(null);
+        previewImage.setVisible(false);
+        previewImage.setManaged(false);
     }
 }

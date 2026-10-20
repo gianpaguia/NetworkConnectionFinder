@@ -27,18 +27,26 @@ public class UserDao {
 
     public boolean createUser(User user, Connection conn) {
         String sql = """
-            INSERT INTO users (student_id, full_name, password_hash, id_card_image_path, role, verification_status, profile_completed, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO users (student_id, first_name, middle_initial, surname, suffix, full_name,
+                               password_hash, id_card_image_path, role, verification_status, profile_completed, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """;
+        // Legacy callers construct User without name parts: fall back to the composed name.
+        String fullName = user.getFullName() != null ? user.getFullName()
+                : User.composeFullName(user.getFirstName(), user.getMiddleInitial(), user.getSurname(), user.getSuffix());
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getStudentId());
-            stmt.setString(2, user.getFullName());
-            stmt.setString(3, user.getPasswordHash());
-            stmt.setString(4, user.getIdCardImagePath());
-            stmt.setString(5, user.getRole().name());
-            stmt.setString(6, user.getVerificationStatus().name());
-            stmt.setInt(7, user.isProfileCompleted() ? 1 : 0);
-            stmt.setString(8, user.getCreatedAt() != null ? user.getCreatedAt().toString() : LocalDateTime.now().toString());
+            stmt.setString(2, user.getFirstName());
+            stmt.setString(3, user.getMiddleInitial());
+            stmt.setString(4, user.getSurname());
+            stmt.setString(5, user.getSuffix());
+            stmt.setString(6, fullName);
+            stmt.setString(7, user.getPasswordHash());
+            stmt.setString(8, user.getIdCardImagePath());
+            stmt.setString(9, user.getRole().name());
+            stmt.setString(10, user.getVerificationStatus().name());
+            stmt.setInt(11, user.isProfileCompleted() ? 1 : 0);
+            stmt.setString(12, user.getCreatedAt() != null ? user.getCreatedAt().toString() : LocalDateTime.now().toString());
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -136,11 +144,18 @@ public class UserDao {
         }
     }
 
-    public boolean updateStudentInfo(String studentId, String fullName) {
-        String sql = "UPDATE users SET full_name = ? WHERE student_id = ?;";
+    /** Replaces the student's name parts and keeps the composed display name in sync. */
+    public boolean updateStudentNames(String studentId, String firstName, String middleInitial,
+                                      String surname, String suffix) {
+        String fullName = com.networkfinder.model.User.composeFullName(firstName, middleInitial, surname, suffix);
+        String sql = "UPDATE users SET first_name = ?, middle_initial = ?, surname = ?, suffix = ?, full_name = ? WHERE student_id = ?;";
         try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, fullName);
-            stmt.setString(2, studentId);
+            stmt.setString(1, firstName);
+            stmt.setString(2, middleInitial);
+            stmt.setString(3, surname);
+            stmt.setString(4, suffix);
+            stmt.setString(5, fullName);
+            stmt.setString(6, studentId);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -162,6 +177,10 @@ public class UserDao {
     private User mapRow(ResultSet rs) throws SQLException {
         User user = new User();
         user.setStudentId(rs.getString("student_id"));
+        user.setFirstName(rs.getString("first_name"));
+        user.setMiddleInitial(rs.getString("middle_initial"));
+        user.setSurname(rs.getString("surname"));
+        user.setSuffix(rs.getString("suffix"));
         user.setFullName(rs.getString("full_name"));
         user.setPasswordHash(rs.getString("password_hash"));
         user.setIdCardImagePath(rs.getString("id_card_image_path"));

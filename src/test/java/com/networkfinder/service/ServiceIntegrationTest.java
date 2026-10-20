@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,7 +26,8 @@ public class ServiceIntegrationTest {
 
     /** Unique, rule-compliant student ID for each test run (leaves the benchmark dataset untouched). */
     private static String uniqueTestId() {
-        return "2026-TEST-" + System.currentTimeMillis() + "-" + TEST_SEQ.incrementAndGet();
+        // Digits only: the student ID rule has no letters, symbols, or separators.
+        return "2026" + System.currentTimeMillis() + TEST_SEQ.incrementAndGet();
     }
 
     @BeforeAll
@@ -48,9 +51,9 @@ public class ServiceIntegrationTest {
         AuthService authService = new AuthService();
         VerificationService verificationService = new VerificationService();
 
-        String testId = "2026-TEST-" + System.currentTimeMillis();
+        String testId = "2026" + System.currentTimeMillis();
         // 1. Register student
-        User student = authService.registerStudent(testId, "Test Student", "pass1234", null);
+        User student = authService.registerStudent(testId, "Test", null, "Student", null, "pass1234", null);
         assertNotNull(student);
         assertEquals(VerificationStatus.PENDING, student.getVerificationStatus());
 
@@ -149,13 +152,13 @@ public class ServiceIntegrationTest {
         NetworkService netService = NetworkService.getInstance();
 
         // 1. Admin adds student
-        String testStudentId = "2026-ADMIN-ADD";
-        assertTrue(netService.adminAddStudent(testStudentId, "Admin Added Student", "BSIT", "1st Year", "BSIT 1A"));
+        String testStudentId = uniqueTestId();
+        assertTrue(netService.adminAddStudent(testStudentId, "Admin", null, "Added Student", null, "BSIT", "1st Year", "BSIT 1A"));
         assertTrue(netService.getGraph().containsVertex(testStudentId));
         assertEquals("Admin Added Student", netService.getGraph().getNode(testStudentId).getFullName());
 
         // 2. Admin edits student
-        assertTrue(netService.adminEditStudent(testStudentId, "Renamed Student", "BSCS", "2nd Year", "BSCS 2A"));
+        assertTrue(netService.adminEditStudent(testStudentId, "Renamed", null, "Student", null, "BSCS", "2nd Year", "BSCS 2A"));
         assertEquals("Renamed Student", netService.getGraph().getNode(testStudentId).getFullName());
         assertEquals("BSCS 2A", netService.getGraph().getNode(testStudentId).getProfile().getSection());
 
@@ -182,31 +185,41 @@ public class ServiceIntegrationTest {
     public void testRegisterValidationRejectsBadInput() throws Exception {
         AuthService authService = new AuthService();
 
-        // Student ID with a space (regex violation)
+        // Student ID containing letters and symbols (digits-only rule)
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent("bad id!", "Valid Name", "pass1234", null));
+                authService.registerStudent("bad id!", "Valid", null, "Name", null, "pass1234", null));
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("2026AB12", "Valid", null, "Name", null, "pass1234", null));
 
         // Password below the minimum length
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(uniqueTestId(), "Valid Name", "short1", null));
+                authService.registerStudent(uniqueTestId(), "Valid", null, "Name", null, "short1", null));
 
         // Password without a digit
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(uniqueTestId(), "Valid Name", "nodigitpass", null));
+                authService.registerStudent(uniqueTestId(), "Valid", null, "Name", null, "nodigitpass", null));
 
-        // Blank full name
+        // Blank first name
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(uniqueTestId(), "   ", "pass1234", null));
+                authService.registerStudent(uniqueTestId(), "   ", null, "Tan", null, "pass1234", null));
 
-        // Name containing digits
+        // First name containing digits
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(uniqueTestId(), "Juan 123", "pass1234", null));
+                authService.registerStudent(uniqueTestId(), "Juan123", null, "Tan", null, "pass1234", null));
+
+        // Middle initial not a single letter
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Juan", "Ma", "Tan", null, "pass1234", null));
+
+        // Suffix containing digits
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Juan", null, "Tan", "2nd", "pass1234", null));
 
         // Duplicate Student ID
         String duplicateId = uniqueTestId();
-        authService.registerStudent(duplicateId, "First User", "pass1234", null);
+        authService.registerStudent(duplicateId, "First", null, "User", null, "pass1234", null);
         assertThrows(ValidationException.class, () ->
-                authService.registerStudent(duplicateId, "Second User", "pass1234", null));
+                authService.registerStudent(duplicateId, "Second", null, "User", null, "pass1234", null));
     }
 
     @Test
@@ -215,11 +228,11 @@ public class ServiceIntegrationTest {
 
         // Blank section rejected by the service even though the dialog allowed it before
         assertThrows(ValidationException.class, () ->
-                netService.adminAddStudent(uniqueTestId(), "Section Check", "BSIT", "1st Year", " "));
+                netService.adminAddStudent(uniqueTestId(), "Section", null, "Check", null, "BSIT", "1st Year", " "));
 
-        // Password-like garbage in the ID (invalid characters)
+        // Lettered Student ID rejected by the digits-only rule
         assertThrows(ValidationException.class, () ->
-                netService.adminAddStudent("bad*id", "Section Check", "BSIT", "1st Year", "BSIT 1A"));
+                netService.adminAddStudent("bad*id", "Section", null, "Check", null, "BSIT", "1st Year", "BSIT 1A"));
     }
 
     @Test
@@ -228,7 +241,7 @@ public class ServiceIntegrationTest {
         VerificationService verificationService = new VerificationService();
 
         String testId = uniqueTestId();
-        authService.registerStudent(testId, "Password Changer", "pass1234", null);
+        authService.registerStudent(testId, "Password", null, "Changer", null, "pass1234", null);
         assertTrue(verificationService.approveStudent(testId));
 
         // Wrong current password is rejected
@@ -243,7 +256,7 @@ public class ServiceIntegrationTest {
         assertEquals(AuthService.PasswordChangeResult.SUCCESS,
                 authService.changePassword(testId, "pass1234", "newpass99"));
         assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
-                authService.authenticate(testId, "pass123").getStatus());
+                authService.authenticate(testId, "pass1234").getStatus());
         assertEquals(AuthService.AuthStatus.SUCCESS,
                 authService.authenticate(testId, "newpass99").getStatus());
     }
@@ -255,7 +268,7 @@ public class ServiceIntegrationTest {
         VerificationService verificationService = new VerificationService();
 
         String testId = uniqueTestId();
-        authService.registerStudent(testId, "Resettable Student", "pass1234", null);
+        authService.registerStudent(testId, "Resettable", null, "Student", null, "pass1234", null);
         assertTrue(verificationService.approveStudent(testId));
 
         // Weak new password rejected
@@ -270,6 +283,54 @@ public class ServiceIntegrationTest {
         assertEquals(AuthService.AuthStatus.SUCCESS,
                 authService.authenticate(testId, "tempNew99").getStatus());
         assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
-                authService.authenticate(testId, "pass123").getStatus());
+                authService.authenticate(testId, "pass1234").getStatus());
+    }
+
+    // ==================================================
+    // ID-CARD PHOTO VALIDATION (content, not extension)
+    // ==================================================
+
+    private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    private static final byte[] JPEG_SIGNATURE = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+
+    private static File tempFile(String name, byte[]... chunks) throws IOException {
+        Path path = Files.createTempFile("nfid-", name);
+        for (byte[] chunk : chunks) {
+            Files.write(path, chunk, java.nio.file.StandardOpenOption.APPEND);
+        }
+        File file = path.toFile();
+        file.deleteOnExit();
+        return file;
+    }
+
+    @Test
+    public void testIdCardImageValidationRejectsSpoofedAndOversizedFiles() throws Exception {
+        AuthService authService = new AuthService();
+
+        // 1. Renamed non-image ("malware.exe" -> "photo.jpg") blocked by magic bytes
+        File spoofed = tempFile(".jpg", "Totally not an image".getBytes());
+        String spoofError = AuthService.validateIdCardImage(spoofed);
+        assertEquals("Only PNG or JPG images are accepted.", spoofError);
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent(uniqueTestId(), "Spoof", null, "Check", null, "pass1234", spoofed));
+
+        // 2. Real PNG magic bytes but oversized (>5 MB) blocked by size cap
+        byte[] payload = new byte[5 * 1024 * 1024];
+        File oversized = tempFile(".png", PNG_SIGNATURE, payload);
+        assertEquals("The ID photo is too large. Please use an image under 5 MB.",
+                AuthService.validateIdCardImage(oversized));
+
+        // 3. A selected file that disappeared is rejected, not silently skipped
+        File missing = new File(System.getProperty("java.io.tmpdir"), "vanished_" + System.nanoTime() + ".jpg");
+        assertEquals("The selected ID photo no longer exists. Please choose it again.",
+                AuthService.validateIdCardImage(missing));
+
+        // 4. A genuine PNG-signature file passes the whole registration path
+        File genuine = tempFile(".png", PNG_SIGNATURE, "fake-image-body".getBytes());
+        String validId = uniqueTestId();
+        User created = authService.registerStudent(validId, "Genuine", null, "Upload", null, "pass1234", genuine);
+        assertNotNull(created);
+        assertNotNull(created.getIdCardImagePath());
+        assertTrue(created.getIdCardImagePath().endsWith(".png"));
     }
 }

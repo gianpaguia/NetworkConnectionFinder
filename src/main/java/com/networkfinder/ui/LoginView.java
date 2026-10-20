@@ -74,47 +74,8 @@ public class LoginView extends StackPane {
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
 
-        StackPane passStack = new StackPane();
-        PasswordField passwordField = new PasswordField();
-        passwordField.setPromptText("Enter your password");
-
-        TextField visiblePassField = new TextField();
-        visiblePassField.setPromptText("Enter your password");
-        visiblePassField.setVisible(false);
-        visiblePassField.setManaged(false);
-
-        Button eyeButton = new Button("👁");
-        eyeButton.setAccessibleText("Show password");
-        eyeButton.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0 8 0 0; -fx-text-fill: -fx-ink-soft;");
-        StackPane.setAlignment(eyeButton, Pos.CENTER_RIGHT);
-
-        eyeButton.setOnAction(e -> {
-            if (passwordField.isVisible()) {
-                visiblePassField.setText(passwordField.getText());
-                passwordField.setVisible(false);
-                passwordField.setManaged(false);
-                visiblePassField.setVisible(true);
-                visiblePassField.setManaged(true);
-                eyeButton.setAccessibleText("Hide password");
-            } else {
-                passwordField.setText(visiblePassField.getText());
-                visiblePassField.setVisible(false);
-                visiblePassField.setManaged(false);
-                passwordField.setVisible(true);
-                passwordField.setManaged(true);
-                eyeButton.setAccessibleText("Show password");
-            }
-        });
-
-        passwordField.textProperty().addListener((obs, old, val) -> {
-            if (passwordField.isVisible()) visiblePassField.setText(val);
-        });
-        visiblePassField.textProperty().addListener((obs, old, val) -> {
-            if (visiblePassField.isVisible()) passwordField.setText(val);
-        });
-
-        passStack.getChildren().addAll(passwordField, visiblePassField, eyeButton);
-        passBox.getChildren().addAll(passLabel, passStack);
+        PasswordRevealField passValue = new PasswordRevealField("Enter your password");
+        passBox.getChildren().addAll(passLabel, passValue);
 
         Button loginBtn = new Button("Sign in");
         loginBtn.getStyleClass().add("button-primary");
@@ -123,7 +84,7 @@ public class LoginView extends StackPane {
 
         loginBtn.setOnAction(e -> {
             String id = idField.getText().trim();
-            String pass = passwordField.isVisible() ? passwordField.getText() : visiblePassField.getText();
+            String pass = passValue.getValue();
 
             AuthService.LoginResult result = authService.authenticate(id, pass);
             switch (result.getStatus()) {

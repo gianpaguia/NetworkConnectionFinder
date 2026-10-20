@@ -68,9 +68,8 @@ public class AdminLoginView extends StackPane {
         VBox passBox = new VBox(6);
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
-        PasswordField passField = new PasswordField();
-        passField.setPromptText("Enter your password");
-        passBox.getChildren().addAll(passLabel, passField);
+        PasswordRevealField passValue = new PasswordRevealField("Enter your password");
+        passBox.getChildren().addAll(passLabel, passValue);
 
         Button loginBtn = new Button("Sign in");
         loginBtn.getStyleClass().add("button-primary");
@@ -79,7 +78,7 @@ public class AdminLoginView extends StackPane {
 
         loginBtn.setOnAction(e -> {
             String username = userField.getText().trim();
-            String password = passField.getText();
+            String password = passValue.getValue();
 
             AuthService.LoginResult res = authService.authenticate(username, password);
             if (res.getStatus() == AuthService.AuthStatus.SUCCESS) {

@@ -494,10 +494,19 @@ public class AdminDashboardView extends BorderPane {
         grid.setPadding(new Insets(20, 20, 10, 10));
 
         TextField idField = new TextField();
-        idField.setPromptText("e.g. 2026-10011");
+        idField.setPromptText("Numbers only (e.g. 202610011)");
 
-        TextField nameField = new TextField();
-        nameField.setPromptText("e.g. Liza Soberano");
+        TextField firstNameField = new TextField();
+        firstNameField.setPromptText("e.g. Juan");
+
+        TextField middleField = new TextField();
+        middleField.setPromptText("Optional (e.g. M.)");
+
+        TextField surnameField = new TextField();
+        surnameField.setPromptText("e.g. Dela Cruz");
+
+        TextField suffixField = new TextField();
+        suffixField.setPromptText("Optional (e.g. Jr.)");
 
         ComboBox<String> courseCombo = new ComboBox<>();
         courseCombo.getItems().addAll(
@@ -516,10 +525,13 @@ public class AdminDashboardView extends BorderPane {
         sectionField.setPromptText("e.g. BSIT 1A");
 
         grid.addRow(0, new Label("Student ID:"), idField);
-        grid.addRow(1, new Label("Full Name:"), nameField);
-        grid.addRow(2, new Label("Course:"), courseCombo);
-        grid.addRow(3, new Label("Year Level:"), yearCombo);
-        grid.addRow(4, new Label("Section:"), sectionField);
+        grid.addRow(1, new Label("First Name:"), firstNameField);
+        grid.addRow(2, new Label("Middle Initial:"), middleField);
+        grid.addRow(3, new Label("Surname:"), surnameField);
+        grid.addRow(4, new Label("Suffix:"), suffixField);
+        grid.addRow(5, new Label("Course:"), courseCombo);
+        grid.addRow(6, new Label("Year Level:"), yearCombo);
+        grid.addRow(7, new Label("Section:"), sectionField);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -528,14 +540,17 @@ public class AdminDashboardView extends BorderPane {
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveBtnType) {
                 String sId = idField.getText().trim();
-                String sName = nameField.getText().trim();
+                String sFirst = firstNameField.getText().trim();
+                String sMiddle = middleField.getText().trim();
+                String sSurname = surnameField.getText().trim();
+                String sSuffix = suffixField.getText().trim();
                 String sCourse = courseCombo.getValue();
                 String sYear = yearCombo.getValue();
                 String sSec = sectionField.getText().trim();
 
-                if (!sId.isEmpty() && !sName.isEmpty()) {
+                if (!sId.isEmpty() && !sFirst.isEmpty() && !sSurname.isEmpty()) {
                     try {
-                        return networkService.adminAddStudent(sId, sName, sCourse, sYear, sSec);
+                        return networkService.adminAddStudent(sId, sFirst, sMiddle, sSurname, sSuffix, sCourse, sYear, sSec);
                     } catch (ValidationException ve) {
                         validationError.set(ve.getMessage());
                         return false;
@@ -570,7 +585,23 @@ public class AdminDashboardView extends BorderPane {
         grid.setVgap(12);
         grid.setPadding(new Insets(20, 20, 10, 10));
 
-        TextField nameField = new TextField(user.getFullName());
+        String[] legacyParts = splitLegacyName(user);
+        String first = user.getFirstName() != null ? user.getFirstName() : legacyParts[0];
+        String middle = user.getMiddleInitial() != null ? user.getMiddleInitial() : "";
+        String surname = user.getSurname() != null ? user.getSurname() : legacyParts[1];
+        String suffix = user.getSuffix() != null ? user.getSuffix() : "";
+
+        TextField firstNameField = new TextField(first);
+        firstNameField.setPromptText("e.g. Juan");
+
+        TextField middleField = new TextField(middle);
+        middleField.setPromptText("Optional (e.g. M.)");
+
+        TextField surnameField = new TextField(surname);
+        surnameField.setPromptText("e.g. Dela Cruz");
+
+        TextField suffixField = new TextField(suffix);
+        suffixField.setPromptText("Optional (e.g. Jr.)");
 
         StudentProfile profile = profileDao.getProfile(user.getStudentId());
         String currentCourse = (profile != null && profile.getCourse() != null) ? profile.getCourse() : "Bachelor of Science in Information Technology";
@@ -592,10 +623,13 @@ public class AdminDashboardView extends BorderPane {
 
         TextField sectionField = new TextField(currentSec);
 
-        grid.addRow(0, new Label("Full Name:"), nameField);
-        grid.addRow(1, new Label("Course:"), courseCombo);
-        grid.addRow(2, new Label("Year Level:"), yearCombo);
-        grid.addRow(3, new Label("Section:"), sectionField);
+        grid.addRow(0, new Label("First Name:"), firstNameField);
+        grid.addRow(1, new Label("Middle Initial:"), middleField);
+        grid.addRow(2, new Label("Surname:"), surnameField);
+        grid.addRow(3, new Label("Suffix:"), suffixField);
+        grid.addRow(4, new Label("Course:"), courseCombo);
+        grid.addRow(5, new Label("Year Level:"), yearCombo);
+        grid.addRow(6, new Label("Section:"), sectionField);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -603,13 +637,16 @@ public class AdminDashboardView extends BorderPane {
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveBtnType) {
-                String sName = nameField.getText().trim();
+                String sFirst = firstNameField.getText().trim();
+                String sMiddle = middleField.getText().trim();
+                String sSurname = surnameField.getText().trim();
+                String sSuffix = suffixField.getText().trim();
                 String sCourse = courseCombo.getValue();
                 String sYear = yearCombo.getValue();
                 String sSec = sectionField.getText().trim();
-                if (!sName.isEmpty()) {
+                if (!sFirst.isEmpty() && !sSurname.isEmpty()) {
                     try {
-                        return networkService.adminEditStudent(user.getStudentId(), sName, sCourse, sYear, sSec);
+                        return networkService.adminEditStudent(user.getStudentId(), sFirst, sMiddle, sSurname, sSuffix, sCourse, sYear, sSec);
                     } catch (ValidationException ve) {
                         validationError.set(ve.getMessage());
                         return false;
@@ -649,14 +686,13 @@ public class AdminDashboardView extends BorderPane {
         grid.setVgap(12);
         grid.setPadding(new Insets(20, 20, 10, 10));
 
-        TextField passwordField = new TextField();
-        passwordField.setPromptText("At least 8 characters, letter + number");
-        passwordField.setPrefColumnCount(22);
+        PasswordRevealField passwordValue = new PasswordRevealField("At least 8 characters, letter + number");
+        passwordValue.setMaxWidth(Double.MAX_VALUE);
 
-        Label hintLabel = new Label("Give this temporary password to the student. They can change it on their Account Settings page.");
+        Label hintLabel = new Label("Give this temporary password to the student. They can change it on their Account Settings page. Use the eye button to double-check what you typed.");
         hintLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft; -fx-wrap-text: true;");
 
-        grid.addRow(0, new Label("Temporary Password:"), passwordField);
+        grid.addRow(0, new Label("Temporary Password:"), passwordValue);
 
         VBox contentBox = new VBox(10, grid, hintLabel);
         dialog.getDialogPane().setContent(contentBox);
@@ -666,7 +702,7 @@ public class AdminDashboardView extends BorderPane {
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == resetBtnType) {
                 try {
-                    return networkService.adminResetPassword(user.getStudentId(), passwordField.getText());
+                    return networkService.adminResetPassword(user.getStudentId(), passwordValue.getValue());
                 } catch (ValidationException ve) {
                     validationError.set(ve.getMessage());
                     return false;
@@ -685,6 +721,20 @@ public class AdminDashboardView extends BorderPane {
             }
         });
     }
+    /**
+     * Users created before the name split only store a composed full name;
+     * split it as [first token, remaining tokens] so the edit dialog can
+     * prefill editable parts.
+     */
+    private String[] splitLegacyName(User user) {
+        String full = user.getFullName() == null ? "" : user.getFullName().trim();
+        int index = full.indexOf(' ');
+        if (index > 0) {
+            return new String[]{full.substring(0, index), full.substring(index + 1)};
+        }
+        return new String[]{full, ""};
+    }
+
     private void confirmDeleteStudent(User user) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Delete Student");

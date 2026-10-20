@@ -342,22 +342,19 @@ public class StudentDashboardView extends BorderPane {
         VBox currentBox = new VBox(6);
         Label currentLbl = new Label("Current Password");
         currentLbl.getStyleClass().add("field-label");
-        PasswordField currentField = new PasswordField();
-        currentField.setPromptText("Enter your current password");
+        PasswordRevealField currentField = new PasswordRevealField("Enter your current password");
         currentBox.getChildren().addAll(currentLbl, currentField);
 
         VBox newBox = new VBox(6);
         Label newLbl = new Label("New Password");
         newLbl.getStyleClass().add("field-label");
-        PasswordField newField = new PasswordField();
-        newField.setPromptText("At least 8 characters, letter + number");
+        PasswordRevealField newField = new PasswordRevealField("At least 8 characters, letter + number");
         newBox.getChildren().addAll(newLbl, newField);
 
         VBox confirmBox = new VBox(6);
         Label confirmLbl = new Label("Confirm New Password");
         confirmLbl.getStyleClass().add("field-label");
-        PasswordField confirmField = new PasswordField();
-        confirmField.setPromptText("Repeat your new password");
+        PasswordRevealField confirmField = new PasswordRevealField("Repeat your new password");
         confirmBox.getChildren().addAll(confirmLbl, confirmField);
 
         Button saveBtn = new Button("Update Password");
@@ -375,9 +372,9 @@ public class StudentDashboardView extends BorderPane {
             successLabel.setVisible(false);
             successLabel.setManaged(false);
 
-            String current = currentField.getText();
-            String next = newField.getText();
-            String confirm = confirmField.getText();
+            String current = currentField.getValue();
+            String next = newField.getValue();
+            String confirm = confirmField.getValue();
 
             if (current.isEmpty() || next.isEmpty() || confirm.isEmpty()) {
                 setFormError(errorLabel, "Please fill in all password fields.");

@@ -81,7 +81,11 @@ public class DatabaseManager {
         String createUsersTable = """
             CREATE TABLE IF NOT EXISTS users (
                 student_id TEXT PRIMARY KEY,
-                full_name TEXT NOT NULL,
+                first_name TEXT,
+                middle_initial TEXT,
+                surname TEXT,
+                suffix TEXT,
+                full_name TEXT,
                 password_hash TEXT NOT NULL,
                 id_card_image_path TEXT,
                 role TEXT NOT NULL,
@@ -124,8 +128,29 @@ public class DatabaseManager {
             stmt.execute(createUsersTable);
             stmt.execute(createProfilesTable);
             stmt.execute(createConnectionsTable);
+            migrateUsersNameColumns(stmt);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to initialize SQLite database tables", e);
+        }
+    }
+
+    /**
+     * Adds the split-name columns to databases created before the change.
+     * Existing rows keep their composed full_name; the new columns stay NULL
+     * until the user's name is edited or re-registered.
+     */
+    private void migrateUsersNameColumns(Statement stmt) throws SQLException {
+        java.util.Set<String> existing = new java.util.HashSet<>();
+        try (java.sql.ResultSet rs = stmt.executeQuery("PRAGMA table_info(users);")) {
+            while (rs.next()) {
+                existing.add(rs.getString("name").toLowerCase());
+            }
+        }
+        String[] newColumns = {"first_name", "middle_initial", "surname", "suffix"};
+        for (String column : newColumns) {
+            if (!existing.contains(column)) {
+                stmt.execute("ALTER TABLE users ADD COLUMN " + column + " TEXT;");
+            }
         }
     }
 

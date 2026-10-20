@@ -164,15 +164,28 @@ public class NetworkService {
      * {@link ValidationException} with a presentable message. Returns false
      * only for storage-level failure.
      */
-    public synchronized boolean adminAddStudent(String studentId, String fullName, String course,
+    public synchronized boolean adminAddStudent(String studentId, String firstName, String middleInitial,
+                                                String surname, String suffix, String course,
                                                 String yearLevel, String section) throws ValidationException {
         String idError = InputValidator.checkStudentId(studentId);
         if (idError != null) {
             throw new ValidationException(idError);
         }
-        String nameError = InputValidator.checkFullName(fullName);
-        if (nameError != null) {
-            throw new ValidationException(nameError);
+        String firstNameError = InputValidator.checkFirstName(firstName);
+        if (firstNameError != null) {
+            throw new ValidationException(firstNameError);
+        }
+        String surnameError = InputValidator.checkSurname(surname);
+        if (surnameError != null) {
+            throw new ValidationException(surnameError);
+        }
+        String middleError = InputValidator.checkMiddleInitial(middleInitial);
+        if (middleError != null) {
+            throw new ValidationException(middleError);
+        }
+        String suffixError = InputValidator.checkSuffix(suffix);
+        if (suffixError != null) {
+            throw new ValidationException(suffixError);
         }
         String courseError = InputValidator.checkCourse(course);
         if (courseError != null) {
@@ -187,18 +200,23 @@ public class NetworkService {
         }
 
         String cleanId = studentId.trim();
-        String cleanName = fullName.trim();
+        String cleanFirst = firstName.trim();
+        String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
+        String cleanSurname = surname.trim();
+        String cleanSuffix = suffix == null ? "" : suffix.trim();
         String cleanCourse = course == null ? "" : course.trim();
         String cleanSection = section == null ? "" : section.trim();
 
         String passwordHash = DatabaseManager.hashPassword(DatabaseManager.DEFAULT_DEMO_PASSWORD);
-        User user = new User(
-                cleanId, cleanName, passwordHash, null,
-                Role.STUDENT,
-                VerificationStatus.APPROVED,
-                true,
-                java.time.LocalDateTime.now()
-        );
+        User user = new User();
+        user.setStudentId(cleanId);
+        user.setNames(cleanFirst, cleanMiddle, cleanSurname, cleanSuffix);
+        user.setPasswordHash(passwordHash);
+        user.setRole(Role.STUDENT);
+        user.setVerificationStatus(VerificationStatus.APPROVED);
+        user.setProfileCompleted(true);
+        user.setCreatedAt(java.time.LocalDateTime.now());
+        String composedName = user.getFullName();
         StudentProfile profile = new StudentProfile(
                 cleanId, cleanCourse, yearLevel, cleanSection,
                 new java.util.ArrayList<>(), new java.util.ArrayList<>(), "Small Group",
@@ -233,16 +251,29 @@ public class NetworkService {
             return false;
         }
 
-        StudentNode node = new StudentNode(cleanId, cleanName, profile);
+        StudentNode node = new StudentNode(cleanId, composedName, profile);
         graph.addVertex(node);
         return true;
     }
 
-    public synchronized boolean adminEditStudent(String studentId, String fullName, String course,
+    public synchronized boolean adminEditStudent(String studentId, String firstName, String middleInitial,
+                                                 String surname, String suffix, String course,
                                                  String yearLevel, String section) throws ValidationException {
-        String nameError = InputValidator.checkFullName(fullName);
-        if (nameError != null) {
-            throw new ValidationException(nameError);
+        String firstNameError = InputValidator.checkFirstName(firstName);
+        if (firstNameError != null) {
+            throw new ValidationException(firstNameError);
+        }
+        String surnameError = InputValidator.checkSurname(surname);
+        if (surnameError != null) {
+            throw new ValidationException(surnameError);
+        }
+        String middleError = InputValidator.checkMiddleInitial(middleInitial);
+        if (middleError != null) {
+            throw new ValidationException(middleError);
+        }
+        String suffixError = InputValidator.checkSuffix(suffix);
+        if (suffixError != null) {
+            throw new ValidationException(suffixError);
         }
         String courseError = InputValidator.checkCourse(course);
         if (courseError != null) {
@@ -256,7 +287,13 @@ public class NetworkService {
         User user = userDao.getUserById(studentId);
         if (user == null) return false;
 
-        userDao.updateStudentInfo(studentId, fullName.trim());
+        String cleanFirst = firstName.trim();
+        String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
+        String cleanSurname = surname.trim();
+        String cleanSuffix = suffix == null ? "" : suffix.trim();
+
+        userDao.updateStudentNames(studentId, cleanFirst, cleanMiddle, cleanSurname, cleanSuffix);
+        String composedName = com.networkfinder.model.User.composeFullName(cleanFirst, cleanMiddle, cleanSurname, cleanSuffix);
 
         StudentProfile profile = profileDao.getProfile(studentId);
         if (profile == null) {
@@ -270,7 +307,7 @@ public class NetworkService {
 
         StudentNode existingNode = graph.getNode(studentId);
         if (existingNode != null) {
-            existingNode.setFullName(fullName);
+            existingNode.setFullName(composedName);
             existingNode.setProfile(profile);
         }
         return true;
