@@ -251,12 +251,12 @@
 }.fluent-tile {
     -fx-background-color: rgba(255, 255, 255, 0.04);
     -fx-border-color: rgba(255, 255, 255, 0.07);
-    -fx-border-radius: 6px;
-    -fx-background-radius: 6px;
-    -fx-padding: 18px 22px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 16px 20px;
     -fx-cursor: hand;
-    -fx-pref-height: 104px;
-    -fx-min-height: 96px;
+    -fx-pref-height: 118px;
+    -fx-min-height: 118px;
     -fx-alignment: center-left;
 }
 
@@ -273,11 +273,19 @@
 .fluent-tile-icon-box {
     -fx-min-width: 48px;
     -fx-max-width: 48px;
+    -fx-min-height: 48px;
+    -fx-max-height: 48px;
+    -fx-background-color: -fx-accent-tint;
+    -fx-border-color: rgba(96, 205, 255, 0.28);
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
     -fx-alignment: center;
 }
 
 .fluent-tile-icon {
-    -fx-font-size: 30px;
+    -fx-font-size: 24px;
+    -fx-alignment: center;
+    -fx-text-alignment: center;
 }
 
 .fluent-tile-title {

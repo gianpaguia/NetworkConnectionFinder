@@ -156,8 +156,18 @@ public class StudentDashboardView extends BorderPane {
             ColumnConstraints col = new ColumnConstraints();
             col.setHgrow(Priority.ALWAYS);
             col.setFillWidth(true);
+            col.setPercentWidth(100.0 / 3);
             tileGrid.getColumnConstraints().add(col);
         }
+        RowConstraints rowA = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
+        rowA.setFillHeight(true);
+        tileGrid.getRowConstraints().add(rowA);
+        RowConstraints rowB = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
+        rowB.setFillHeight(true);
+        tileGrid.getRowConstraints().add(rowB);
+        RowConstraints rowC = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
+        rowC.setFillHeight(true);
+        tileGrid.getRowConstraints().add(rowC);
 
         allTiles.clear();
 
@@ -234,12 +244,12 @@ public class StudentDashboardView extends BorderPane {
         return card;
     }
 
-    /** Places tiles into the stretchy 3-column grid, row by row. */
+    /** Places tiles into the stretchy 3-column grid, row by row (always within the 3 constrained columns). */
     private void layoutTilesOnGrid(GridPane grid, List<VBox> tiles) {
         grid.getChildren().clear();
         int column = 0;
         for (VBox tile : tiles) {
-            grid.add(tile, column, column / 3);
+            grid.add(tile, column % 3, column / 3);
             column++;
         }
     }
@@ -265,7 +275,10 @@ public class StudentDashboardView extends BorderPane {
 
         Label descLbl = new Label(desc);
         descLbl.getStyleClass().add("fluent-tile-desc");
-        descLbl.setWrapText(true);
+        descLbl.setWrapText(false);
+        descLbl.setTextOverrun(OverrunStyle.ELLIPSIS);
+        descLbl.setMaxWidth(Double.MAX_VALUE);
+        Tooltip.install(descLbl, new Tooltip(desc));
         textCol.setMaxWidth(Double.MAX_VALUE);
 
         textCol.getChildren().addAll(titleLbl, descLbl);

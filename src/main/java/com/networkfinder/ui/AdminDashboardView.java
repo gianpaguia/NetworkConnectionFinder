@@ -278,14 +278,7 @@ public class AdminDashboardView extends BorderPane {
         HBox buttonBox = new HBox(12);
         Button approveBtn = new Button("✓ APPROVE");
         approveBtn.getStyleClass().add("button-primary");
-        approveBtn.setOnAction(e -> {
-            if (!verificationService.approveStudent(user.getStudentId())) {
-                UiDialogs.showError("Could not approve this student. Please try again.");
-                return;
-            }
-            networkService.reloadGraph();
-            showVerificationQueueScreen();
-        });
+        approveBtn.setOnAction(e -> confirmApproveStudent(user));
 
         Button rejectBtn = new Button("✕ REJECT");
         rejectBtn.getStyleClass().add("button-danger");
@@ -743,6 +736,34 @@ public class AdminDashboardView extends BorderPane {
             return new String[]{full.substring(0, index), full.substring(index + 1)};
         }
         return new String[]{full, ""};
+    }
+
+    /**
+     * approving a student grants sign-in and adds them to the campus network
+     * graph, so a final confirmation prevents one accidental click from
+     * verifying the wrong account.
+     */
+    private void confirmApproveStudent(User user) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Accept Student");
+        alert.setHeaderText("Are you sure you want to accept this student?");
+        alert.setContentText(
+                user.getFullName() + " (" + user.getStudentId() + ")\n\n" +
+                "Verify the name and Student ID against the card image before continuing. " +
+                "Once accepted, the student can sign in and appears in the campus network graph."
+        );
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!verificationService.approveStudent(user.getStudentId())) {
+                    UiDialogs.showError("Could not approve this student. Please try again.");
+                    return;
+                }
+                networkService.reloadGraph();
+                showVerificationQueueScreen();
+            }
+        });
     }
 
     private void confirmDeleteStudent(User user) {
