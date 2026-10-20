@@ -13,6 +13,8 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 
 public class AuthService {
+    public static final long MAX_ID_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB upload cap
+
     private final UserDao userDao = new UserDao();
 
     public enum AuthStatus {
@@ -57,9 +59,13 @@ public class AuthService {
             return new LoginResult(AuthStatus.USER_NOT_FOUND, null, "No account found with this Student ID.");
         }
 
-        String hashedInput = DatabaseManager.hashPassword(password);
-        if (!hashedInput.equals(user.getPasswordHash())) {
+        if (!DatabaseManager.verifyPassword(password, user.getPasswordHash())) {
             return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Incorrect password.");
+        }
+
+        // Upgrade legacy unsalted SHA-256 hashes to PBKDF2 on successful login
+        if (DatabaseManager.isLegacyHash(user.getPasswordHash())) {
+            userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(password));
         }
 
         // Students must be approved before logging in
@@ -79,22 +85,48 @@ public class AuthService {
     }
 
     public User registerStudent(String studentId, String fullName, String password, File idCardImage) throws IOException {
-        String cleanId = studentId.trim();
+        String cleanId = validateStudentId(studentId);
+        if (cleanId == null) {
+            return null;
+        }
+        if (fullName == null || fullName.isBlank()) {
+            return null;
+        }
+        if (password == null || password.length() < 8) {
+            return null;
+        }
+        if (userDao.getUserById(cleanId) != null) {
+            return null;
+        }
+
         String savedImagePath = null;
 
         if (idCardImage != null && idCardImage.exists()) {
-            String extension = "";
+            if (idCardImage.length() > MAX_ID_IMAGE_BYTES) {
+                return null;
+            }
+            String extension = ".png";
             String name = idCardImage.getName();
             int dotIndex = name.lastIndexOf('.');
-            if (dotIndex > 0) {
-                extension = name.substring(dotIndex);
+            if (dotIndex >= 0) {
+                String candidate = name.substring(dotIndex).toLowerCase();
+                if (candidate.equals(".jpg") || candidate.equals(".jpeg") || candidate.equals(".png")) {
+                    extension = candidate;
+                }
             }
+            extension = extension.equals(".jpeg") ? ".jpg" : extension;
+
             File destDir = new File(DatabaseManager.getUploadsDir());
             if (!destDir.exists()) destDir.mkdirs();
 
-            File destFile = new File(destDir, "id_" + cleanId.replace("-", "_") + extension);
+            String uploadsRoot = destDir.getCanonicalPath() + File.separator;
+            File destFile = new File(destDir, "id_" + cleanId + extension);
+            if (!destFile.getCanonicalPath().startsWith(uploadsRoot)) {
+                return null;
+            }
+
             Files.copy(idCardImage.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            savedImagePath = destFile.getPath();
+            savedImagePath = destFile.getCanonicalPath();
         }
 
         User user = new User(
@@ -110,5 +142,19 @@ public class AuthService {
 
         boolean created = userDao.createUser(user);
         return created ? user : null;
+    }
+
+    public static String validateStudentId(String studentId) {
+        if (studentId == null) {
+            return null;
+        }
+        String cleanId = studentId.trim();
+        if (cleanId.isEmpty() || cleanId.length() > 64) {
+            return null;
+        }
+        if (!cleanId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
+            return null;
+        }
+        return cleanId;
     }
 }

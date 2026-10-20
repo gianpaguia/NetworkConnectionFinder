@@ -98,25 +98,31 @@ public class ProfileDao {
 
         String subjectsJson = rs.getString("subjects");
         if (subjectsJson != null && !subjectsJson.isBlank()) {
-            List<String> list = gson.fromJson(subjectsJson, listType);
-            profile.setSubjects(list);
+            profile.setSubjects(deserializeList(subjectsJson));
         }
 
         String habitsJson = rs.getString("study_habits");
         if (habitsJson != null && !habitsJson.isBlank()) {
-            List<String> list = gson.fromJson(habitsJson, listType);
-            profile.setStudyHabits(list);
+            profile.setStudyHabits(deserializeList(habitsJson));
         }
 
         profile.setGroupSizePreference(rs.getString("group_size"));
 
         String interestsJson = rs.getString("interests");
         if (interestsJson != null && !interestsJson.isBlank()) {
-            List<String> list = gson.fromJson(interestsJson, listType);
-            profile.setInterests(list);
+            profile.setInterests(deserializeList(interestsJson));
         }
 
         profile.setOtherInterests(rs.getString("other_interests"));
         return profile;
+    }
+
+    private List<String> deserializeList(String json) {
+        try {
+            List<String> list = gson.fromJson(json, listType);
+            return list != null ? list : new ArrayList<>();
+        } catch (RuntimeException e) {
+            return new ArrayList<>();
+        }
     }
 }

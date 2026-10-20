@@ -8,6 +8,9 @@ public class StudentNode {
     private StudentProfile profile;
 
     public StudentNode(String studentId, String fullName, StudentProfile profile) {
+        if (studentId == null) {
+            throw new IllegalArgumentException("studentId cannot be null");
+        }
         this.studentId = studentId;
         this.fullName = fullName;
         this.profile = profile;

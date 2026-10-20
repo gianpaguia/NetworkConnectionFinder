@@ -19,7 +19,7 @@ public class ConnectionDao {
         String sql = """
             INSERT INTO connections (requester_id, receiver_id, status, created_at)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(requester_id, receiver_id) DO UPDATE SET status = excluded.status;
+            ON CONFLICT(requester_id, receiver_id) DO UPDATE SET status = excluded.status, created_at = excluded.created_at;
         """;
         try (java.sql.Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, requesterId);
@@ -170,12 +170,24 @@ public class ConnectionDao {
         }
     }
 
+    public boolean deleteConnectionsForStudent(String studentId) {
+        String sql = "DELETE FROM connections WHERE requester_id = ? OR receiver_id = ?;";
+        try (java.sql.Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, studentId);
+            stmt.setString(2, studentId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private Connection mapRow(ResultSet rs) throws SQLException {
         Connection c = new Connection();
         c.setId(rs.getInt("id"));
         c.setRequesterId(rs.getString("requester_id"));
         c.setReceiverId(rs.getString("receiver_id"));
-        c.setStatus(ConnectionStatus.valueOf(rs.getString("status")));
+        c.setStatus(parseStatus(rs.getString("status")));
         String createdAtStr = rs.getString("created_at");
         if (createdAtStr != null) {
             try {
@@ -185,5 +197,13 @@ public class ConnectionDao {
             }
         }
         return c;
+    }
+
+    private ConnectionStatus parseStatus(String value) {
+        try {
+            return value == null ? ConnectionStatus.PENDING : ConnectionStatus.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return ConnectionStatus.PENDING;
+        }
     }
 }

@@ -53,10 +53,16 @@ public class NetworkMetrics {
         }
 
         List<StudentNode> allNodes = new ArrayList<>(graph.getAllNodes());
-        allNodes.sort((a, b) -> Integer.compare(
-                graph.getDegree(b.getStudentId()), 
-                graph.getDegree(a.getStudentId())
-        ));
+        allNodes.sort((a, b) -> {
+            int byDegree = Integer.compare(
+                    graph.getDegree(b.getStudentId()),
+                    graph.getDegree(a.getStudentId())
+            );
+            if (byDegree != 0) {
+                return byDegree;
+            }
+            return a.getStudentId().compareTo(b.getStudentId());
+        });
 
         return allNodes.subList(0, Math.min(limit, allNodes.size()));
     }

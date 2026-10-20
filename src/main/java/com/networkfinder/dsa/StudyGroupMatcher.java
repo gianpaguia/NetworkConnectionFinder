@@ -78,8 +78,10 @@ public class StudyGroupMatcher {
     }
 
     /**
-     * Campus-wide peer discovery for unconnected students (degree 0 / isolated nodes),
-     * evaluated and ranked by academic compatibility.
+     * Campus-wide peer discovery for socially-disconnected students (no path in
+     * the graph), evaluated and ranked by academic compatibility. Students that
+     * are already reachable via BFS from the current student are excluded so
+     * they are not listed twice.
      */
     public static List<MatchResult> findCampusMatches(Graph graph, String currentStudentId, MatchFilter filter) {
         List<MatchResult> matches = new ArrayList<>();
@@ -93,15 +95,15 @@ public class StudyGroupMatcher {
             return matches;
         }
 
-        Set<String> directNeighbors = graph.getNeighbors(currentStudentId);
+        Set<String> unconnected = computeUnconnectedIds(graph, currentStudentId);
 
         for (StudentNode candidate : graph.getAllNodes()) {
             String candidateId = candidate.getStudentId();
             if (candidateId.equals(currentStudentId)) {
                 continue;
             }
-            // Skip students already directly connected
-            if (directNeighbors.contains(candidateId)) {
+            // Skip students already surfaced by the network BFS traversal
+            if (!unconnected.contains(candidateId)) {
                 continue;
             }
 
@@ -124,6 +126,34 @@ public class StudyGroupMatcher {
         // Sort descending by compatibility score
         matches.sort((a, b) -> Integer.compare(b.getCompatibilityScore(), a.getCompatibilityScore()));
         return matches;
+    }
+
+    /**
+     * Level-Order BFS flooding from startId; returns vertex IDs that remain
+     * unreachable (disconnected component of the network).
+     */
+    private static Set<String> computeUnconnectedIds(Graph graph, String startId) {
+        Set<String> unreachable = new HashSet<>();
+        for (String id : graph.getAllVertexIds()) {
+            if (!id.equals(startId)) {
+                unreachable.add(id);
+            }
+        }
+
+        Queue<String> queue = new ArrayDeque<>();
+        Set<String> visited = new HashSet<>();
+        queue.add(startId);
+        visited.add(startId);
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            unreachable.remove(current);
+            for (String neighborId : graph.getNeighbors(current)) {
+                if (visited.add(neighborId)) {
+                    queue.add(neighborId);
+                }
+            }
+        }
+        return unreachable;
     }
 
     private static MatchResult evaluateCompatibility(StudentNode node1, StudentProfile p1,

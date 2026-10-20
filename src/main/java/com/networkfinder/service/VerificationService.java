@@ -13,11 +13,17 @@ public class VerificationService {
         return userDao.getPendingStudents();
     }
 
-    public boolean approveStudent(String studentId) {
-        return userDao.updateVerificationStatus(studentId, VerificationStatus.APPROVED);
+    public OperationResult approveStudent(String studentId) {
+        if (userDao.updateVerificationStatus(studentId, VerificationStatus.APPROVED)) {
+            return OperationResult.ok("Registration approved.");
+        }
+        return OperationResult.fail("Could not approve — the registration request may have already been processed.");
     }
 
-    public boolean rejectStudent(String studentId) {
-        return userDao.updateVerificationStatus(studentId, VerificationStatus.REJECTED);
+    public OperationResult rejectStudent(String studentId) {
+        if (userDao.updateVerificationStatus(studentId, VerificationStatus.REJECTED)) {
+            return OperationResult.ok("Registration rejected.");
+        }
+        return OperationResult.fail("Could not reject — the registration request may have already been processed.");
     }
 }

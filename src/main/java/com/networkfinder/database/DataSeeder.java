@@ -14,12 +14,17 @@ public class DataSeeder {
 
     public static void forceResetAndSeed() {
         DatabaseManager db = DatabaseManager.getInstance();
-        try (java.sql.Connection conn = db.getConnection(); java.sql.Statement stmt = conn.createStatement()) {
-            stmt.execute("PRAGMA foreign_keys = OFF;");
-            stmt.execute("DELETE FROM connections;");
-            stmt.execute("DELETE FROM profiles;");
-            stmt.execute("DELETE FROM users;");
-            stmt.execute("PRAGMA foreign_keys = ON;");
+        try (java.sql.Connection conn = db.getConnection()) {
+            conn.setAutoCommit(false);
+            try (java.sql.Statement stmt = conn.createStatement()) {
+                stmt.execute("DELETE FROM connections;");
+                stmt.execute("DELETE FROM profiles;");
+                stmt.execute("DELETE FROM users;");
+                conn.commit();
+            } catch (java.sql.SQLException e) {
+                conn.rollback();
+                throw e;
+            }
         } catch (java.sql.SQLException e) {
             e.printStackTrace();
         }

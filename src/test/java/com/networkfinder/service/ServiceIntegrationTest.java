@@ -12,16 +12,21 @@ import com.networkfinder.model.VerificationStatus;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ServiceIntegrationTest {
 
     @BeforeAll
-    public static void setUp() {
+    public static void setUp() throws IOException {
+        Path tempDb = Files.createTempFile("network-finder-test-" + UUID.randomUUID(), ".db");
+        tempDb.toFile().deleteOnExit();
+        System.setProperty("networkfinder.db.path", tempDb.toAbsolutePath().toString());
         DatabaseManager.getInstance();
         DataSeeder.seedIfEmpty();
         NetworkService.getInstance().reloadGraph();
@@ -42,13 +47,17 @@ public class ServiceIntegrationTest {
         VerificationService verificationService = new VerificationService();
 
         String testId = "2026-TEST-" + System.currentTimeMillis();
+        // 0. Registration input validation
+        assertNull(authService.registerStudent("bad id!", "Test Student", "pass1234", null));
+        assertNull(authService.registerStudent(testId, "Test Student", "short", null));
+
         // 1. Register student
-        User student = authService.registerStudent(testId, "Test Student", "pass123", null);
+        User student = authService.registerStudent(testId, "Test Student", "pass1234", null);
         assertNotNull(student);
         assertEquals(VerificationStatus.PENDING, student.getVerificationStatus());
 
         // 2. Student cannot login while pending
-        AuthService.LoginResult loginPending = authService.authenticate(testId, "pass123");
+        AuthService.LoginResult loginPending = authService.authenticate(testId, "pass1234");
         assertEquals(AuthService.AuthStatus.PENDING_VERIFICATION, loginPending.getStatus());
 
         // 3. Admin sees pending student in list
@@ -56,10 +65,11 @@ public class ServiceIntegrationTest {
         assertTrue(pending.stream().anyMatch(u -> u.getStudentId().equals(testId)));
 
         // 4. Admin approves student
-        assertTrue(verificationService.approveStudent(testId));
+        OperationResult approved = verificationService.approveStudent(testId);
+        assertTrue(approved.isOk(), approved.getMessage());
 
         // 5. Student can now login
-        AuthService.LoginResult loginApproved = authService.authenticate(testId, "pass123");
+        AuthService.LoginResult loginApproved = authService.authenticate(testId, "pass1234");
         assertEquals(AuthService.AuthStatus.SUCCESS, loginApproved.getStatus());
     }
 
@@ -110,12 +120,14 @@ public class ServiceIntegrationTest {
         String s1 = "2026-10001"; // Juan
         String s7 = "2026-10007"; // Joshua (not directly connected to Juan initially)
 
-        // Make sure no direct connection initially
-        netService.removeConnection(s1, s7);
+        // Make sure no direct connection initially (a reasoned failure proves the precondition)
+        assertFalse(netService.removeConnection(s1, s7).isOk(), "Precondition failed: students were already connected.");
         assertFalse(netService.hasConnection(s1, s7));
 
         // 1. Juan sends connection request to Joshua
-        assertTrue(netService.sendConnectionRequest(s1, s7));
+        OperationResult sent = netService.sendConnectionRequest(s1, s7);
+        assertTrue(sent.isOk(), sent.getMessage());
+        assertEquals("Connection request sent to 2026-10007.", sent.getMessage());
         assertFalse(netService.hasConnection(s1, s7)); // Not connected until accepted!
 
         // 2. Joshua sees incoming request from Juan
@@ -123,9 +135,15 @@ public class ServiceIntegrationTest {
         assertTrue(incoming.stream().anyMatch(c -> c.getRequesterId().equals(s1)));
 
         // 3. Joshua accepts connection request
-        assertTrue(netService.acceptConnectionRequest(s1, s7));
+        OperationResult accepted = netService.acceptConnectionRequest(s1, s7);
+        assertTrue(accepted.isOk(), accepted.getMessage());
         assertTrue(netService.hasConnection(s1, s7)); // Now active edge in graph!
         assertTrue(netService.getGraph().hasEdge(s1, s7));
+
+        // 3b. Sending a second request to a connected classmate is rejected with a reason
+        OperationResult rejected = netService.sendConnectionRequest(s1, s7);
+        assertFalse(rejected.isOk());
+        assertTrue(rejected.getMessage().contains("already connected"), rejected.getMessage());
 
         // Shortest path between Juan and Joshua is now 1 direct hop
         PathResult path = netService.findShortestPath(s1, s7);
@@ -133,7 +151,7 @@ public class ServiceIntegrationTest {
         assertEquals(1, path.getDegreesOfSeparation());
 
         // 4. Cleanup
-        assertTrue(netService.removeConnection(s1, s7));
+        assertTrue(netService.removeConnection(s1, s7).isOk());
         assertFalse(netService.hasConnection(s1, s7));
     }
 
@@ -143,21 +161,33 @@ public class ServiceIntegrationTest {
 
         // 1. Admin adds student
         String testStudentId = "2026-ADMIN-ADD";
-        assertTrue(netService.adminAddStudent(testStudentId, "Admin Added Student", "BSIT", "1st Year", "BSIT 1A"));
+        OperationResult addResult = netService.adminAddStudent(testStudentId, "Admin Added Student", "BSIT", "1st Year", "BSIT 1A");
+        assertTrue(addResult.isOk(), addResult.getMessage());
         assertTrue(netService.getGraph().containsVertex(testStudentId));
         assertEquals("Admin Added Student", netService.getGraph().getNode(testStudentId).getFullName());
 
         // 2. Admin edits student
-        assertTrue(netService.adminEditStudent(testStudentId, "Renamed Student", "BSCS", "2nd Year", "BSCS 2A"));
+        OperationResult editResult = netService.adminEditStudent(testStudentId, "Renamed Student", "BSCS", "2nd Year", "BSCS 2A");
+        assertTrue(editResult.isOk(), editResult.getMessage());
         assertEquals("Renamed Student", netService.getGraph().getNode(testStudentId).getFullName());
         assertEquals("BSCS 2A", netService.getGraph().getNode(testStudentId).getProfile().getSection());
 
+        // 2b. Admin operations validate inputs before touching the DB or graph
+        OperationResult dup = netService.adminAddStudent(testStudentId, "Duplicate ID", "BSIT", "1st Year", "BSIT 1A");
+        assertFalse(dup.isOk());
+        assertTrue(dup.getMessage().contains("already registered"), dup.getMessage());
+        assertFalse(netService.adminAddStudent("bad id!", "Invalid ID Student", "BSIT", "1st Year", "BSIT 1A").isOk());
+        assertFalse(netService.adminAddStudent("  ", "Blank ID Student", "BSIT", "1st Year", "BSIT 1A").isOk());
+        assertFalse(netService.adminEditStudent(testStudentId, "", "BSIT", "1st Year", "BSIT 1A").isOk());
+        assertFalse(netService.adminEditStudent(testStudentId, "X", "BSIT", "1st Year", "x".repeat(101)).isOk());
+        assertEquals("Renamed Student", netService.getGraph().getNode(testStudentId).getFullName());
+
         // 3. Admin adds connection between test student and Juan
-        assertTrue(netService.addConnection(testStudentId, "2026-10001"));
+        assertTrue(netService.addConnection(testStudentId, "2026-10001").isOk());
         assertTrue(netService.hasConnection(testStudentId, "2026-10001"));
 
         // 4. Admin deletes student
-        assertTrue(netService.adminDeleteStudent(testStudentId));
+        assertTrue(netService.adminDeleteStudent(testStudentId).isOk());
         assertFalse(netService.getGraph().containsVertex(testStudentId));
         assertFalse(netService.hasConnection(testStudentId, "2026-10001"));
 

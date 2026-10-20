@@ -87,26 +87,26 @@ public class Graph {
     /**
      * Checks if an edge exists between two students.
      */
-    public boolean hasEdge(String studentId1, String studentId2) {
+    public synchronized boolean hasEdge(String studentId1, String studentId2) {
         Set<String> adj = adjacencyList.get(studentId1);
         return adj != null && adj.contains(studentId2);
     }
 
     /**
-     * Gets the neighbor student IDs for a given student.
+     * Gets a defensive snapshot of the neighbor student IDs for a given student.
      */
-    public Set<String> getNeighbors(String studentId) {
+    public synchronized Set<String> getNeighbors(String studentId) {
         Set<String> adj = adjacencyList.get(studentId);
         if (adj == null) {
             return Collections.emptySet();
         }
-        return Collections.unmodifiableSet(adj);
+        return Collections.unmodifiableSet(new LinkedHashSet<>(adj));
     }
 
     /**
      * Gets the degree (number of connections) of a student.
      */
-    public int getDegree(String studentId) {
+    public synchronized int getDegree(String studentId) {
         Set<String> adj = adjacencyList.get(studentId);
         return adj == null ? 0 : adj.size();
     }
@@ -114,42 +114,42 @@ public class Graph {
     /**
      * Retrieves the StudentNode by studentId.
      */
-    public StudentNode getNode(String studentId) {
+    public synchronized StudentNode getNode(String studentId) {
         return nodes.get(studentId);
     }
 
     /**
      * Checks if a vertex exists in the graph.
      */
-    public boolean containsVertex(String studentId) {
+    public synchronized boolean containsVertex(String studentId) {
         return nodes.containsKey(studentId);
     }
 
     /**
-     * Gets all student nodes in the graph.
+     * Gets a defensive snapshot of all student nodes in the graph.
      */
-    public Collection<StudentNode> getAllNodes() {
-        return Collections.unmodifiableCollection(nodes.values());
+    public synchronized Collection<StudentNode> getAllNodes() {
+        return Collections.unmodifiableCollection(new ArrayList<>(nodes.values()));
     }
 
     /**
-     * Gets all vertex IDs.
+     * Gets a defensive snapshot of all vertex IDs.
      */
-    public Set<String> getAllVertexIds() {
-        return Collections.unmodifiableSet(nodes.keySet());
+    public synchronized Set<String> getAllVertexIds() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(nodes.keySet()));
     }
 
     /**
      * Returns total number of vertices (students).
      */
-    public int getVertexCount() {
+    public synchronized int getVertexCount() {
         return nodes.size();
     }
 
     /**
      * Returns total number of undirected edges.
      */
-    public int getEdgeCount() {
+    public synchronized int getEdgeCount() {
         int total = 0;
         for (Set<String> adj : adjacencyList.values()) {
             total += adj.size();

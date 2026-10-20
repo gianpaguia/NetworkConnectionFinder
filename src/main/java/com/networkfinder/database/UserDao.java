@@ -127,6 +127,18 @@ public class UserDao {
         }
     }
 
+    public boolean updatePasswordHash(String studentId, String passwordHash) {
+        String sql = "UPDATE users SET password_hash = ? WHERE student_id = ?;";
+        try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, passwordHash);
+            stmt.setString(2, studentId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public boolean deleteUser(String studentId) {
         String sql = "DELETE FROM users WHERE student_id = ?;";
         try (Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -144,8 +156,8 @@ public class UserDao {
         user.setFullName(rs.getString("full_name"));
         user.setPasswordHash(rs.getString("password_hash"));
         user.setIdCardImagePath(rs.getString("id_card_image_path"));
-        user.setRole(Role.valueOf(rs.getString("role")));
-        user.setVerificationStatus(VerificationStatus.valueOf(rs.getString("verification_status")));
+        user.setRole(parseRole(rs.getString("role")));
+        user.setVerificationStatus(parseVerificationStatus(rs.getString("verification_status")));
         user.setProfileCompleted(rs.getInt("profile_completed") == 1);
         String createdAtStr = rs.getString("created_at");
         if (createdAtStr != null) {
@@ -156,5 +168,21 @@ public class UserDao {
             }
         }
         return user;
+    }
+
+    private Role parseRole(String value) {
+        try {
+            return value == null ? Role.STUDENT : Role.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return Role.STUDENT;
+        }
+    }
+
+    private VerificationStatus parseVerificationStatus(String value) {
+        try {
+            return value == null ? VerificationStatus.REJECTED : VerificationStatus.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return VerificationStatus.REJECTED;
+        }
     }
 }
