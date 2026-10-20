@@ -417,18 +417,23 @@ public class ProfileWizardView extends StackPane {
         for (String[] s : sizes) {
             String title = s[0];
             String desc = s[1];
-            VBox card = new VBox(4);
+            Button card = new Button();
             boolean selected = title.equalsIgnoreCase(selectedGroupSize);
             card.getStyleClass().add(selected ? "selectable-card-selected" : "selectable-card");
             HBox.setHgrow(card, Priority.ALWAYS);
+            card.setMaxWidth(Double.MAX_VALUE);
+            card.setAlignment(Pos.CENTER_LEFT);
 
+            VBox cardContent = new VBox(4);
             Label titleL = new Label(title);
             titleL.setStyle("-fx-font-weight: 700; -fx-text-fill: " + (selected ? "#60CDFF;" : "#FFFFFF;"));
             Label descL = new Label(desc);
             descL.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
-            card.getChildren().addAll(titleL, descL);
+            cardContent.getChildren().addAll(titleL, descL);
+            card.setGraphic(cardContent);
+            card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
 
-            card.setOnMouseClicked(e -> {
+            card.setOnAction(e -> {
                 selectedGroupSize = title;
                 renderStep();
             });

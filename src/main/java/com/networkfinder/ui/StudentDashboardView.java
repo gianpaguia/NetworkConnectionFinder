@@ -24,7 +24,7 @@ public class StudentDashboardView extends BorderPane {
     private final StackPane contentArea = new StackPane();
     private Button windowBackBtn;
     private Label windowTitleLbl;
-    private List<VBox> allTiles = new ArrayList<>();
+    private List<Button> allTiles = new ArrayList<>();
 
     public StudentDashboardView(User user) {
         this.currentUser = user;
@@ -142,35 +142,35 @@ public class StudentDashboardView extends BorderPane {
 
         allTiles.clear();
 
-        VBox tileMatcher = createFluentTile("🎯", "Study Group Matcher", "Level-order BFS, subjects, peers", () -> {
+        Button tileMatcher = createFluentTile("🎯", "Study Group Matcher", "Level-order BFS, subjects, peers", () -> {
             windowBackBtn.setVisible(true);
             windowTitleLbl.setText("Settings > Study Group Matcher");
             showStudyGroupMatcherScreen();
         });
 
-        VBox tilePathfinder = createFluentTile("🗺️", "Pathfinder (BFS)", "Degrees of separation, shortest chain", () -> {
+        Button tilePathfinder = createFluentTile("🗺️", "Pathfinder (BFS)", "Degrees of separation, shortest chain", () -> {
             windowBackBtn.setVisible(true);
             windowTitleLbl.setText("Settings > Pathfinder (BFS)");
             showPathfinderScreen();
         });
 
-        VBox tileConnections = createFluentTile("👥", "My Connections", "Direct peers, mutual friends, requests", () -> {
+        Button tileConnections = createFluentTile("👥", "My Connections", "Direct peers, mutual friends, requests", () -> {
             windowBackBtn.setVisible(true);
             windowTitleLbl.setText("Settings > My Connections");
             showConnectionsScreen();
         });
 
-        VBox tileAnalytics = createFluentTile("📊", "Network Graph & Hubs", "Degree centrality, hubs, constellation", () -> {
+        Button tileAnalytics = createFluentTile("📊", "Network Graph & Hubs", "Degree centrality, hubs, constellation", () -> {
             windowBackBtn.setVisible(true);
             windowTitleLbl.setText("Settings > Network Graph & Hubs");
             showAnalyticsScreen();
         });
 
-        VBox tileProfile = createFluentTile("✏️", "Academic Profile", "Subjects, study habits, group preference", () -> {
+        Button tileProfile = createFluentTile("✏️", "Academic Profile", "Subjects, study habits, group preference", () -> {
             ScreenNavigator.showProfileWizard(currentUser);
         });
 
-        VBox tileVerification = createFluentTile("🛡️", "Account & Verification", "Student credentials, security badge", () -> {
+        Button tileVerification = createFluentTile("🛡️", "Account & Verification", "Student credentials, security badge", () -> {
             showAccountVerificationModal();
         });
 
@@ -181,9 +181,9 @@ public class StudentDashboardView extends BorderPane {
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             String query = (newVal == null) ? "" : newVal.toLowerCase().trim();
             tileGrid.getChildren().clear();
-            for (VBox t : allTiles) {
-                Label tTitle = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(0);
-                Label tDesc = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(1);
+            for (Button t : allTiles) {
+                Label tTitle = (Label) ((HBox) t.getGraphic().getChildren().get(1)).getChildren().get(0);
+                Label tDesc = (Label) ((HBox) t.getGraphic().getChildren().get(1)).getChildren().get(1);
                 if (query.isEmpty() || tTitle.getText().toLowerCase().contains(query) || tDesc.getText().toLowerCase().contains(query)) {
                     tileGrid.getChildren().add(t);
                 }
@@ -214,8 +214,8 @@ public class StudentDashboardView extends BorderPane {
         return card;
     }
 
-    private VBox createFluentTile(String icon, String title, String desc, Runnable onClick) {
-        VBox card = new VBox();
+    private Button createFluentTile(String icon, String title, String desc, Runnable onClick) {
+        Button card = new Button();
         card.getStyleClass().add("fluent-tile");
 
         HBox inner = new HBox(14);
@@ -237,9 +237,10 @@ public class StudentDashboardView extends BorderPane {
 
         textCol.getChildren().addAll(titleLbl, descLbl);
         inner.getChildren().addAll(iconBox, textCol);
-        card.getChildren().add(inner);
 
-        card.setOnMouseClicked(e -> onClick.run());
+        card.setGraphic(inner);
+        card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        card.setOnAction(e -> onClick.run());
         return card;
     }
 

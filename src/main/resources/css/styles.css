@@ -448,6 +448,8 @@
 .nav-button:focused,
 .selectable-card:focused,
 .selectable-card-selected:focused,
+.fluent-tile:focused,
+.upload-box:focused,
 .chip:focused,
 .chip-selected:focused {
     -fx-border-color: -fx-accent;
