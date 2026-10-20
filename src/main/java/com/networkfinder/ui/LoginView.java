@@ -1,10 +1,11 @@
 package com.networkfinder.ui;
 
+import com.networkfinder.database.ProfileDao;
+import com.networkfinder.database.UserDao;
 import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.AuthService;
-import com.networkfinder.service.NetworkService;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -13,7 +14,7 @@ import javafx.scene.text.Text;
 
 public class LoginView extends StackPane {
     private final AuthService authService = new AuthService();
-    private final NetworkService networkService = NetworkService.getInstance();
+    private final ProfileDao profileDao = new ProfileDao();
 
     public LoginView() {
         setAlignment(Pos.CENTER);
@@ -31,13 +32,12 @@ public class LoginView extends StackPane {
 
         VBox formPanel = new VBox(20);
         formPanel.setAlignment(Pos.CENTER);
-        formPanel.setMaxWidth(440);
         formPanel.setPadding(new Insets(30));
         HBox.setHgrow(formPanel, Priority.ALWAYS);
 
         VBox container = new VBox(20);
         container.setAlignment(Pos.CENTER);
-        container.setMaxWidth(420);
+        container.setMaxWidth(560);
 
         VBox headerBox = new VBox(6);
         headerBox.setAlignment(Pos.CENTER_LEFT);
@@ -58,7 +58,7 @@ public class LoginView extends StackPane {
         cardHeading.getStyleClass().add("card-title");
 
         Label errorLabel = new Label();
-        errorLabel.setStyle("-fx-text-fill: -fx-danger; -fx-font-weight: 500; -fx-font-size: 13px;");
+        errorLabel.getStyleClass().add("form-error");
         errorLabel.setWrapText(true);
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
@@ -74,47 +74,8 @@ public class LoginView extends StackPane {
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
 
-        StackPane passStack = new StackPane();
-        PasswordField passwordField = new PasswordField();
-        passwordField.setPromptText("Enter your password");
-
-        TextField visiblePassField = new TextField();
-        visiblePassField.setPromptText("Enter your password");
-        visiblePassField.setVisible(false);
-        visiblePassField.setManaged(false);
-
-        Button eyeButton = new Button("◉");
-        eyeButton.setAccessibleText("Show password");
-        eyeButton.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0 8 0 0; -fx-text-fill: -fx-ink-soft;");
-        StackPane.setAlignment(eyeButton, Pos.CENTER_RIGHT);
-
-        eyeButton.setOnAction(e -> {
-            if (passwordField.isVisible()) {
-                visiblePassField.setText(passwordField.getText());
-                passwordField.setVisible(false);
-                passwordField.setManaged(false);
-                visiblePassField.setVisible(true);
-                visiblePassField.setManaged(true);
-                eyeButton.setAccessibleText("Hide password");
-            } else {
-                passwordField.setText(visiblePassField.getText());
-                visiblePassField.setVisible(false);
-                visiblePassField.setManaged(false);
-                passwordField.setVisible(true);
-                passwordField.setManaged(true);
-                eyeButton.setAccessibleText("Show password");
-            }
-        });
-
-        passwordField.textProperty().addListener((obs, old, val) -> {
-            if (passwordField.isVisible()) visiblePassField.setText(val);
-        });
-        visiblePassField.textProperty().addListener((obs, old, val) -> {
-            if (visiblePassField.isVisible()) passwordField.setText(val);
-        });
-
-        passStack.getChildren().addAll(passwordField, visiblePassField, eyeButton);
-        passBox.getChildren().addAll(passLabel, passStack);
+        PasswordRevealField passValue = new PasswordRevealField("Enter your password");
+        passBox.getChildren().addAll(passLabel, passValue);
 
         Button loginBtn = new Button("Sign in");
         loginBtn.getStyleClass().add("button-primary");
@@ -123,16 +84,18 @@ public class LoginView extends StackPane {
 
         loginBtn.setOnAction(e -> {
             String id = idField.getText().trim();
-            String pass = passwordField.isVisible() ? passwordField.getText() : visiblePassField.getText();
+            String pass = passValue.getValue();
 
             AuthService.LoginResult result = authService.authenticate(id, pass);
             switch (result.getStatus()) {
                 case SUCCESS -> {
                     User user = result.getUser();
                     if (user.getRole() == Role.ADMIN) {
-                        ScreenNavigator.showAdminDashboard();
+                        errorLabel.setText("Administrator accounts must sign in through the Admin Portal.");
+                        errorLabel.setVisible(true);
+                        errorLabel.setManaged(true);
                     } else {
-                        StudentProfile profile = networkService.getStudentProfile(user.getStudentId());
+                        StudentProfile profile = profileDao.getProfile(user.getStudentId());
                         if (user.isProfileCompleted() && profile != null) {
                             ScreenNavigator.showStudentDashboard(user);
                         } else {
@@ -169,7 +132,7 @@ public class LoginView extends StackPane {
         card.getChildren().addAll(cardHeading, errorLabel, idBox, passBox, loginBtn, registerBox, helperBox);
 
         Button adminBtn = new Button("Admin Portal");
-        adminBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: -fx-ink-soft; -fx-font-size: 12px; -fx-font-weight: 500; -fx-cursor: hand;");
+        adminBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: -fx-ink-soft; -fx-font-size: 14px; -fx-font-weight: 500; -fx-cursor: hand;");
         adminBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
 
         container.getChildren().addAll(headerBox, card, adminBtn);

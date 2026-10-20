@@ -39,16 +39,14 @@ public class DataSeeder {
 
         // 1. Ensure Admin exists
         if (userDao.getUserById("admin") == null) {
-            User admin = new User(
-                    "admin",
-                    "System Administrator",
-                    DatabaseManager.hashPassword("admin123"),
-                    null,
-                    Role.ADMIN,
-                    VerificationStatus.APPROVED,
-                    true,
-                    LocalDateTime.now()
-            );
+            User admin = new User();
+            admin.setStudentId("admin");
+            admin.setNames("System", null, "Administrator", null);
+            admin.setPasswordHash(DatabaseManager.hashPassword("admin123"));
+            admin.setRole(Role.ADMIN);
+            admin.setVerificationStatus(VerificationStatus.APPROVED);
+            admin.setProfileCompleted(true);
+            admin.setCreatedAt(LocalDateTime.now());
             userDao.createUser(admin);
         }
 
@@ -57,16 +55,15 @@ public class DataSeeder {
         ensureSampleIdImage(sampleIdPath);
 
         if (userDao.getUserById("2026-99999") == null) {
-            User pendingStudent = new User(
-                    "2026-99999",
-                    "Alex Tan",
-                    DatabaseManager.hashPassword("student123"),
-                    sampleIdPath,
-                    Role.STUDENT,
-                    VerificationStatus.PENDING,
-                    false,
-                    LocalDateTime.now().minusHours(2)
-            );
+            User pendingStudent = new User();
+            pendingStudent.setStudentId("2026-99999");
+            pendingStudent.setNames("Alex", null, "Tan", null);
+            pendingStudent.setPasswordHash(DatabaseManager.hashPassword("student123"));
+            pendingStudent.setIdCardImagePath(sampleIdPath);
+            pendingStudent.setRole(Role.STUDENT);
+            pendingStudent.setVerificationStatus(VerificationStatus.PENDING);
+            pendingStudent.setProfileCompleted(false);
+            pendingStudent.setCreatedAt(LocalDateTime.now().minusHours(2));
             userDao.createUser(pendingStudent);
         }
 
@@ -77,7 +74,7 @@ public class DataSeeder {
     }
 
     private static void seedStudents(UserDao userDao, ProfileDao profileDao, ConnectionDao connDao) {
-        String defaultPass = DatabaseManager.hashPassword("password123");
+        String defaultPass = DatabaseManager.hashPassword(DatabaseManager.DEFAULT_DEMO_PASSWORD);
 
         // Student 1: Juan Dela Cruz
         createStudent(userDao, profileDao,
@@ -202,7 +199,21 @@ public class DataSeeder {
                                       List<String> subjects, List<String> habits,
                                       String groupSize, List<String> interests, String other) {
         if (userDao.getUserById(id) == null) {
-            User user = new User(id, name, pass, null, Role.STUDENT, VerificationStatus.APPROVED, true, LocalDateTime.now());
+            User user = new User();
+            user.setStudentId(id);
+            // Benchmark seed names: first token is the given name, the rest is the surname.
+            String trimmed = name.trim();
+            int spaceIndex = trimmed.indexOf(' ');
+            if (spaceIndex > 0) {
+                user.setNames(trimmed.substring(0, spaceIndex), null, trimmed.substring(spaceIndex + 1), null);
+            } else {
+                user.setNames(trimmed, null, "", null);
+            }
+            user.setPasswordHash(pass);
+            user.setRole(Role.STUDENT);
+            user.setVerificationStatus(VerificationStatus.APPROVED);
+            user.setProfileCompleted(true);
+            user.setCreatedAt(LocalDateTime.now());
             userDao.createUser(user);
         }
 

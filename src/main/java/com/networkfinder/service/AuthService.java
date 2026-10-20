@@ -7,14 +7,18 @@ import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 
 public class AuthService {
-    public static final long MAX_ID_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB upload cap
-
     private final UserDao userDao = new UserDao();
 
     public enum AuthStatus {
@@ -56,16 +60,12 @@ public class AuthService {
 
         User user = userDao.getUserById(studentId.trim());
         if (user == null) {
-            return new LoginResult(AuthStatus.USER_NOT_FOUND, null, "No account found with this Student ID.");
+            return new LoginResult(AuthStatus.USER_NOT_FOUND, null, "Invalid Student ID or password.");
         }
 
-        if (!DatabaseManager.verifyPassword(password, user.getPasswordHash())) {
-            return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Incorrect password.");
-        }
-
-        // Upgrade legacy unsalted SHA-256 hashes to PBKDF2 on successful login
-        if (DatabaseManager.isLegacyHash(user.getPasswordHash())) {
-            userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(password));
+        String hashedInput = DatabaseManager.hashPassword(password);
+        if (!constantTimeEquals(hashedInput, user.getPasswordHash())) {
+            return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Invalid Student ID or password.");
         }
 
         // Students must be approved before logging in
@@ -84,77 +84,199 @@ public class AuthService {
         return userDao.getUserById(studentId.trim()) != null;
     }
 
-    public User registerStudent(String studentId, String fullName, String password, File idCardImage) throws IOException {
-        String cleanId = validateStudentId(studentId);
-        if (cleanId == null) {
-            return null;
+    private static final long MAX_ID_IMAGE_BYTES = 5L * 1024 * 1024;
+
+    /** PNG magic bytes: 0x89 'P' 'N' 'G' 0x0D 0x0A 0x1A 0x0A */
+    private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    /** JPEG magic bytes: 0xFF 0xD8 0xFF */
+    private static final byte[] JPEG_SIGNATURE = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+
+    /**
+     * Registers a new PENDING student account. The service layer is the
+     * validation authority: rules from {@link InputValidator} are enforced here
+     * even if a caller skips UI checks. Throws {@link ValidationException} with
+     * a user-presentable message for the first violated rule.
+     */
+    public User registerStudent(String studentId, String firstName, String middleInitial,
+                                String surname, String suffix, String password, File idCardImage)
+            throws IOException, ValidationException {
+        String idError = InputValidator.checkStudentId(studentId);
+        if (idError != null) {
+            throw new ValidationException(idError);
         }
-        if (fullName == null || fullName.isBlank()) {
-            return null;
+        String firstNameError = InputValidator.checkFirstName(firstName);
+        if (firstNameError != null) {
+            throw new ValidationException(firstNameError);
         }
-        if (password == null || password.length() < 8) {
-            return null;
+        String surnameError = InputValidator.checkSurname(surname);
+        if (surnameError != null) {
+            throw new ValidationException(surnameError);
         }
-        if (userDao.getUserById(cleanId) != null) {
-            return null;
+        String middleError = InputValidator.checkMiddleInitial(middleInitial);
+        if (middleError != null) {
+            throw new ValidationException(middleError);
         }
-
-        String savedImagePath = null;
-
-        if (idCardImage != null && idCardImage.exists()) {
-            if (idCardImage.length() > MAX_ID_IMAGE_BYTES) {
-                return null;
-            }
-            String extension = ".png";
-            String name = idCardImage.getName();
-            int dotIndex = name.lastIndexOf('.');
-            if (dotIndex >= 0) {
-                String candidate = name.substring(dotIndex).toLowerCase();
-                if (candidate.equals(".jpg") || candidate.equals(".jpeg") || candidate.equals(".png")) {
-                    extension = candidate;
-                }
-            }
-            extension = extension.equals(".jpeg") ? ".jpg" : extension;
-
-            File destDir = new File(DatabaseManager.getUploadsDir());
-            if (!destDir.exists()) destDir.mkdirs();
-
-            String uploadsRoot = destDir.getCanonicalPath() + File.separator;
-            File destFile = new File(destDir, "id_" + cleanId + extension);
-            if (!destFile.getCanonicalPath().startsWith(uploadsRoot)) {
-                return null;
-            }
-
-            Files.copy(idCardImage.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            savedImagePath = destFile.getCanonicalPath();
+        String suffixError = InputValidator.checkSuffix(suffix);
+        if (suffixError != null) {
+            throw new ValidationException(suffixError);
+        }
+        String passwordError = InputValidator.checkPassword(password);
+        if (passwordError != null) {
+            throw new ValidationException(passwordError);
+        }
+        if (isStudentIdRegistered(studentId)) {
+            throw new ValidationException("This Student ID is already registered.");
         }
 
-        User user = new User(
-                cleanId,
-                fullName.trim(),
-                DatabaseManager.hashPassword(password),
-                savedImagePath,
-                Role.STUDENT,
-                VerificationStatus.PENDING,
-                false,
-                LocalDateTime.now()
-        );
+        String cleanId = studentId.trim();
+        String cleanFirst = firstName.trim();
+        String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
+        String cleanSurname = surname.trim();
+        String cleanSuffix = suffix == null ? "" : suffix.trim();
+        String savedImagePath = saveIdCardImage(cleanId, idCardImage);
+
+        User user = new User();
+        user.setStudentId(cleanId);
+        user.setNames(cleanFirst, cleanMiddle, cleanSurname, cleanSuffix);
+        user.setPasswordHash(DatabaseManager.hashPassword(password));
+        user.setIdCardImagePath(savedImagePath);
+        user.setRole(Role.STUDENT);
+        user.setVerificationStatus(VerificationStatus.PENDING);
+        user.setProfileCompleted(false);
+        user.setCreatedAt(LocalDateTime.now());
 
         boolean created = userDao.createUser(user);
-        return created ? user : null;
+        if (!created) {
+            // createUser only fails on SQLException; the id-card upload above
+            // succeeded, so nothing else was persisted. Nothing to clean up.
+            return null;
+        }
+        return user;
     }
 
-    public static String validateStudentId(String studentId) {
-        if (studentId == null) {
+    /** Result of a password change attempt. */
+    public enum PasswordChangeResult {
+        SUCCESS,
+        WRONG_CURRENT_PASSWORD,
+        UNKNOWN_USER,
+        ERROR
+    }
+
+    /**
+     * Changes a user's password after verifying the current one. The service
+     * re-validates the new password regardless of what the UI allowed.
+     * Admin accounts can only change passwords through their own process.
+     */
+    public PasswordChangeResult changePassword(String studentId, String currentPassword, String newPassword)
+            throws ValidationException {
+        String passwordError = InputValidator.checkPassword(newPassword);
+        if (passwordError != null) {
+            throw new ValidationException(passwordError);
+        }
+        User user = userDao.getUserById(studentId == null ? "" : studentId.trim());
+        if (user == null) {
+            return PasswordChangeResult.UNKNOWN_USER;
+        }
+        if (user.getRole() == Role.ADMIN) {
+            return PasswordChangeResult.ERROR;
+        }
+        String hashedCurrent = DatabaseManager.hashPassword(currentPassword == null ? "" : currentPassword);
+        if (!constantTimeEquals(hashedCurrent, user.getPasswordHash())) {
+            return PasswordChangeResult.WRONG_CURRENT_PASSWORD;
+        }
+        boolean updated = userDao.updatePasswordHash(user.getStudentId(), DatabaseManager.hashPassword(newPassword));
+        return updated ? PasswordChangeResult.SUCCESS : PasswordChangeResult.ERROR;
+    }
+
+    /**
+     * Validates a chosen ID-card photo against the real file content, not just
+     * its name. Shared by the registration screen (instant feedback when a
+     * file is picked) and {@link #registerStudent} (the submit-time authority).
+     * Renamed non-images have wrong bytes and are rejected. Returns an error
+     * message, or null when the file is a readable PNG/JPG under the size cap.
+     */
+    public static String validateIdCardImage(File imageFile) {
+        if (imageFile == null) {
+            return null; // optional-photo callers handle the no-selection case
+        }
+        if (!imageFile.exists() || !imageFile.isFile()) {
+            return "The selected ID photo no longer exists. Please choose it again.";
+        }
+        if (imageFile.length() > MAX_ID_IMAGE_BYTES) {
+            return "The ID photo is too large. Please use an image under 5 MB.";
+        }
+        try {
+            String extension = readImageExtension(imageFile);
+            return extension != null ? null : "Only PNG or JPG images are accepted.";
+        } catch (IOException e) {
+            return "The selected ID photo could not be read. Please choose a different file.";
+        }
+    }
+
+    /** Inspects magic bytes and returns ".png"/".jpg", or null for unknown content. */
+    private static String readImageExtension(File imageFile) throws IOException {
+        try (InputStream in = new FileInputStream(imageFile)) {
+            byte[] head = in.readNBytes(PNG_SIGNATURE.length);
+            if (matchesBytes(head, PNG_SIGNATURE)) {
+                return ".png";
+            }
+            if (matchesBytes(head, JPEG_SIGNATURE)) {
+                return ".jpg";
+            }
             return null;
         }
-        String cleanId = studentId.trim();
-        if (cleanId.isEmpty() || cleanId.length() > 64) {
+    }
+
+    private static boolean matchesBytes(byte[] data, byte[] signature) {
+        if (data == null || data.length < signature.length) {
+            return false;
+        }
+        for (int i = 0; i < signature.length; i++) {
+            if (data[i] != signature[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Copies the validated ID photo into the uploads directory. The saved
+     * extension is decided by the detected content type, so a JPEG renamed to
+     * ".png" (or vice versa) is stored with the truthful extension.
+     */
+    private String saveIdCardImage(String cleanId, File idCardImage) throws IOException, ValidationException {
+        if (idCardImage == null) {
             return null;
         }
-        if (!cleanId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
-            return null;
+
+        String validationError = validateIdCardImage(idCardImage);
+        if (validationError != null) {
+            throw new ValidationException(validationError);
         }
-        return cleanId;
+
+        String extension = readImageExtension(idCardImage);
+
+        String safeBase = cleanId.replaceAll("[^A-Za-z0-9_-]", "_");
+        File destDir = new File(DatabaseManager.getUploadsDir());
+        if (!destDir.exists()) destDir.mkdirs();
+
+        File destFile = new File(destDir, "id_" + safeBase + extension);
+        Path uploadsRoot = Paths.get(destDir.getCanonicalPath());
+        Path target = Paths.get(destFile.getCanonicalPath());
+        if (!target.startsWith(uploadsRoot)) {
+            throw new IOException("Invalid upload destination path.");
+        }
+
+        Files.copy(idCardImage.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
+        return destFile.getPath();
+    }
+
+    private boolean constantTimeEquals(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                left.getBytes(StandardCharsets.UTF_8),
+                right.getBytes(StandardCharsets.UTF_8));
     }
 }
