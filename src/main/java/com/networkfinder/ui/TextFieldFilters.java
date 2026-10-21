@@ -40,12 +40,47 @@ public final class TextFieldFilters {
         }));
     }
 
-    /** Student ID fields: digits only, capped at maxLength. */
-    public static TextFormatter<String> studentIdFilter(int maxLength) {
-        return new TextFormatter<>(new FilterOperator(maxLength, change -> {
-            String text = change.getText();
-            return text.isEmpty() || text.matches("[0-9]+");
-        }));
+    /**
+     * Student ID fields: live guard for the 00000000-A format (service rule in
+     * {@link com.networkfinder.service.InputValidator}). Typed lowercase
+     * letters are auto-uppercased, the dash is inserted automatically after
+     * the 8th digit, and wrong characters are rejected as they are typed.
+     */
+    public static TextFormatter<String> studentIdFilter() {
+        return new TextFormatter<>(change -> {
+            if (!change.isContentChange()) {
+                return change;
+            }
+            String typed = change.getText();
+            if (!typed.isEmpty()) {
+                String normalized = typed.toUpperCase();
+                if (!normalized.matches("[0-9A-Z]+")) {
+                    return null;
+                }
+                if (!normalized.equals(typed)) {
+                    change.setText(normalized);
+                }
+            }
+            String resulting = change.getControlNewText();
+            if (resulting.length() > com.networkfinder.service.InputValidator.getMaxIdLength()) {
+                return null;
+            }
+            if (!resulting.matches("[0-9]{0,8}(-[A-Z]{0,1})?")) {
+                return null;
+            }
+            if (resulting.matches("[0-9]{8}")) {
+                change.setRange(0, change.getControlText().length());
+                change.setText(resulting + "-");
+                change.setCaretPosition(9);
+                change.setAnchor(9);
+            } else if (resulting.matches("[0-9]{8}[A-Z]")) {
+                change.setRange(0, change.getControlText().length());
+                change.setText(resulting.substring(0, 8) + "-" + resulting.substring(8));
+                change.setCaretPosition(10);
+                change.setAnchor(10);
+            }
+            return change;
+        });
     }
 
     /**

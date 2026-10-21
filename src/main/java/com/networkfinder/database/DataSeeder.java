@@ -19,6 +19,7 @@ public class DataSeeder {
             stmt.execute("DELETE FROM connections;");
             stmt.execute("DELETE FROM profiles;");
             stmt.execute("DELETE FROM users;");
+            stmt.execute("DELETE FROM archived_users;");
             stmt.execute("PRAGMA foreign_keys = ON;");
         } catch (java.sql.SQLException e) {
             e.printStackTrace();
@@ -49,9 +50,9 @@ public class DataSeeder {
         String sampleIdPath = DatabaseManager.getUploadsDir() + File.separator + "sample_id_card.png";
         ensureSampleIdImage(sampleIdPath);
 
-        if (userDao.getUserById("2026-99999") == null) {
+        if (userDao.getUserById("20269999-Z") == null) {
             User pendingStudent = new User();
-            pendingStudent.setStudentId("2026-99999");
+            pendingStudent.setStudentId("20269999-Z");
             pendingStudent.setNames("Alex", null, "Tan", null);
             pendingStudent.setPasswordHash(DatabaseManager.hashPassword("student123"));
             pendingStudent.setIdCardImagePath(sampleIdPath);
@@ -63,8 +64,44 @@ public class DataSeeder {
         }
 
         // 3. Ensure Verified Students Network exists
-        if (userDao.getUserById("2026-10001") == null) {
+        if (userDao.getUserById("20260001-A") == null) {
             seedStudents(userDao, profileDao, connDao);
+        }
+    }
+
+    /**
+     * Startup cleanup for the 00000000-A format change: removes every student
+     * account whose stored ID does not follow the new format (legacy demo seeds
+     * and old test users), together with their profiles, connections, and
+     * uploaded ID images. The admin account is never touched. seedIfEmpty()
+     * afterwards restores the benchmark set in the new format. Idempotent.
+     */
+    public static void purgeLegacyStudentIds() {
+        UserDao userDao = new UserDao();
+        ProfileDao profileDao = new ProfileDao();
+        ConnectionDao connDao = new ConnectionDao();
+
+        int removed = 0;
+        for (User user : userDao.getAllUsers()) {
+            if (user.getRole() == Role.ADMIN) {
+                continue;
+            }
+            String storedId = user.getStudentId();
+            if (com.networkfinder.service.InputValidator.isValidStudentId(
+                    com.networkfinder.service.InputValidator.normalizeStudentId(storedId))) {
+                continue;
+            }
+            connDao.deleteConnectionsForUser(storedId);
+            profileDao.deleteProfile(storedId);
+            String imagePath = user.getIdCardImagePath();
+            if (imagePath != null) {
+                try {
+                    java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(imagePath));
+                } catch (Exception ignored) {
+                }
+            }
+            userDao.deleteUser(storedId);
+            removed++;
         }
     }
 
@@ -73,7 +110,7 @@ public class DataSeeder {
 
         // Student 1: Juan Dela Cruz
         createStudent(userDao, profileDao,
-                "2026-10001", "Juan Dela Cruz", defaultPass,
+                "20260001-A", "Juan Dela Cruz", defaultPass,
                 "Bachelor of Science in Information Technology", "1st Year", "BSIT 1A",
                 List.of("Programming", "Data Structures", "Networking"),
                 List.of("Coding Together", "Group Discussions", "Working on Projects"),
@@ -82,7 +119,7 @@ public class DataSeeder {
 
         // Student 2: Maria Santos
         createStudent(userDao, profileDao,
-                "2026-10002", "Maria Santos", defaultPass,
+                "20260002-B", "Maria Santos", defaultPass,
                 "Bachelor of Science in Information Technology", "1st Year", "BSIT 1A",
                 List.of("Programming", "Database Management", "Web Development"),
                 List.of("Coding Together", "Reviewing Lessons", "Sharing Notes"),
@@ -91,7 +128,7 @@ public class DataSeeder {
 
         // Student 3: Mark Reyes
         createStudent(userDao, profileDao,
-                "2026-10003", "Mark Reyes", defaultPass,
+                "20260003-C", "Mark Reyes", defaultPass,
                 "Bachelor of Science in Information Technology", "1st Year", "BSIT 1B",
                 List.of("Data Structures", "Mobile Development", "Cybersecurity"),
                 List.of("Coding Together", "Solving Problems"),
@@ -100,7 +137,7 @@ public class DataSeeder {
 
         // Student 4: Patricia Gomez
         createStudent(userDao, profileDao,
-                "2026-10004", "Patricia Gomez", defaultPass,
+                "20260004-D", "Patricia Gomez", defaultPass,
                 "Bachelor of Science in Computer Science", "1st Year", "BSCS 1A",
                 List.of("Programming", "Mathematics", "Software Engineering"),
                 List.of("Solving Problems", "Exam Review"),
@@ -109,7 +146,7 @@ public class DataSeeder {
 
         // Student 5: Christian Lim
         createStudent(userDao, profileDao,
-                "2026-10005", "Christian Lim", defaultPass,
+                "20260005-E", "Christian Lim", defaultPass,
                 "Bachelor of Science in Computer Science", "1st Year", "BSCS 1A",
                 List.of("Mathematics", "Data Structures", "Research"),
                 List.of("Reviewing Lessons", "Exam Review"),
@@ -118,7 +155,7 @@ public class DataSeeder {
 
         // Student 6: Bea Alonzo
         createStudent(userDao, profileDao,
-                "2026-10006", "Bea Alonzo", defaultPass,
+                "20260006-F", "Bea Alonzo", defaultPass,
                 "Bachelor of Science in Information Technology", "2nd Year", "BSIT 2A",
                 List.of("Web Development", "Database Management", "Software Engineering"),
                 List.of("Group Discussions", "Working on Projects"),
@@ -127,7 +164,7 @@ public class DataSeeder {
 
         // Student 7: Joshua Garcia
         createStudent(userDao, profileDao,
-                "2026-10007", "Joshua Garcia", defaultPass,
+                "20260007-G", "Joshua Garcia", defaultPass,
                 "Bachelor of Science in Information Technology", "2nd Year", "BSIT 2A",
                 List.of("Mobile Development", "Networking", "Cybersecurity"),
                 List.of("Coding Together", "Solving Problems"),
@@ -136,7 +173,7 @@ public class DataSeeder {
 
         // Student 8: Angel Locsin
         createStudent(userDao, profileDao,
-                "2026-10008", "Angel Locsin", defaultPass,
+                "20260008-H", "Angel Locsin", defaultPass,
                 "Bachelor of Science in Computer Science", "2nd Year", "BSCS 2A",
                 List.of("Software Engineering", "Research", "Programming"),
                 List.of("Group Discussions", "Sharing Notes"),
@@ -145,7 +182,7 @@ public class DataSeeder {
 
         // Student 9: Daniel Padilla
         createStudent(userDao, profileDao,
-                "2026-10009", "Daniel Padilla", defaultPass,
+                "20260009-I", "Daniel Padilla", defaultPass,
                 "Bachelor of Science in Computer Science", "2nd Year", "BSCS 2A",
                 List.of("Mathematics", "Cybersecurity", "Networking"),
                 List.of("Solving Problems", "Working on Projects"),
@@ -154,7 +191,7 @@ public class DataSeeder {
 
         // Student 10: Kathryn Bernardo
         createStudent(userDao, profileDao,
-                "2026-10010", "Kathryn Bernardo", defaultPass,
+                "20260010-J", "Kathryn Bernardo", defaultPass,
                 "Bachelor of Science in Information Technology", "1st Year", "BSIT 1B",
                 List.of("Data Structures", "Web Development", "Communication"),
                 List.of("Reviewing Lessons", "Sharing Notes"),
@@ -163,29 +200,29 @@ public class DataSeeder {
 
         // 4. Seed Network Connections (Edges in Graph)
         // Juan is connected to Maria (1st degree) and Kathryn (1st degree)
-        connDao.addConnection("2026-10001", "2026-10002", ConnectionStatus.ACCEPTED);
-        connDao.addConnection("2026-10001", "2026-10010", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260001-A", "20260002-B", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260001-A", "20260010-J", ConnectionStatus.ACCEPTED);
 
         // Maria is connected to Mark and Patricia
-        connDao.addConnection("2026-10002", "2026-10003", ConnectionStatus.ACCEPTED);
-        connDao.addConnection("2026-10002", "2026-10004", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260002-B", "20260003-C", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260002-B", "20260004-D", ConnectionStatus.ACCEPTED);
 
         // Mark is connected to Joshua and Bea
-        connDao.addConnection("2026-10003", "2026-10007", ConnectionStatus.ACCEPTED);
-        connDao.addConnection("2026-10003", "2026-10006", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260003-C", "20260007-G", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260003-C", "20260006-F", ConnectionStatus.ACCEPTED);
 
         // Patricia is connected to Christian and Angel
-        connDao.addConnection("2026-10004", "2026-10005", ConnectionStatus.ACCEPTED);
-        connDao.addConnection("2026-10004", "2026-10008", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260004-D", "20260005-E", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260004-D", "20260008-H", ConnectionStatus.ACCEPTED);
 
         // Christian is connected to Daniel
-        connDao.addConnection("2026-10005", "2026-10009", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260005-E", "20260009-I", ConnectionStatus.ACCEPTED);
 
         // Bea is connected to Joshua
-        connDao.addConnection("2026-10006", "2026-10007", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260006-F", "20260007-G", ConnectionStatus.ACCEPTED);
 
         // Angel is connected to Daniel
-        connDao.addConnection("2026-10008", "2026-10009", ConnectionStatus.ACCEPTED);
+        connDao.addConnection("20260008-H", "20260009-I", ConnectionStatus.ACCEPTED);
     }
 
     private static void createStudent(UserDao userDao, ProfileDao profileDao,
@@ -257,7 +294,7 @@ public class DataSeeder {
 
                 g.setFont(new Font("SansSerif", Font.PLAIN, 13));
                 g.setColor(new Color(71, 85, 105));
-                g.drawString("Student ID: 2026-99999", 170, 135);
+                g.drawString("Student ID: 20269999-Z", 170, 135);
                 g.drawString("Course: BS Information Tech", 170, 160);
                 g.drawString("Academic Year: 2026-2027", 170, 185);
                 g.drawString("Status: Regular Student", 170, 210);

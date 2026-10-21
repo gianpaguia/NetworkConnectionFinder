@@ -6,6 +6,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 
 public class RegistrationSubmittedView extends StackPane {
 
@@ -29,7 +30,12 @@ public class RegistrationSubmittedView extends StackPane {
         // Status Badge container
         HBox badgeBox = new HBox(8);
         badgeBox.setAlignment(Pos.CENTER_LEFT);
-        Label statusBadge = new Label("🟡 Pending Verification");
+        Circle pendingDot = new Circle(4);
+        pendingDot.getStyleClass().add("status-dot");
+        Label statusBadge = new Label("Pending Verification");
+        statusBadge.setGraphic(pendingDot);
+        statusBadge.setGraphicTextGap(6);
+        statusBadge.getStyleClass().add("badge-pending");
         statusBadge.getStyleClass().add("badge-pending");
         statusBadge.setStyle("-fx-font-size: 13px; -fx-padding: 6px 14px;");
         badgeBox.getChildren().add(statusBadge);

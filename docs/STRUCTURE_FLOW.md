@@ -383,7 +383,9 @@ erDiagram
     }
 ```
 
-Constraints: `connections` UNIQUE(requester_id, receiver_id); both user FKs `ON DELETE CASCADE`. `DataSeeder.forceResetAndSeed()` (admin reset path) wipes all tables under `PRAGMA foreign_keys = OFF` and re-seeds.
+Constraints: `connections` UNIQUE(requester_id, receiver_id); both user FKs `ON DELETE CASCADE`. `DataSeeder.forceResetAndSeed()` (admin reset path) wipes `users`, `profiles`, `connections`, and `archived_users` under `PRAGMA foreign_keys = OFF` and re-seeds.
+
+Student ID format: `00000000-A` (8 digits, one dash, one letter; typed lowercase is normalized to uppercase). Legacy IDs (`2026-10001` style or digits-only) are cleaned by `DataSeeder.purgeLegacyStudentIds()` on startup before `seedIfEmpty()`.
 
 ---
 
@@ -392,8 +394,8 @@ Constraints: `connections` UNIQUE(requester_id, receiver_id); both user FKs `ON 
 | Account | Password | Role / Status | Purpose |
 |---|---|---|---|
 | `admin` | `admin123` | ADMIN, APPROVED | Admin portal + verification queue |
-| `2026-99999` (Alex Tan) | `student123` | STUDENT, **PENDING** | Demo pending-verification card (ID image auto-generated) |
-| `2026-10001` … `2026-10010` | `password123` | STUDENT, APPROVED + full profiles | 10-student benchmark network with 11 edges (friendly names incl. Juan Dela Cruz, Maria Santos, …) |
+| `20269999-Z` (Alex Tan) | `student123` | STUDENT, **PENDING** | Demo pending-verification card (ID image auto-generated) |
+| `20260001-A` … `20260010-J` | `password123` | STUDENT, APPROVED + full profiles | 10-student benchmark network with 11 edges (friendly names incl. Juan Dela Cruz, Maria Santos, …) |
 
 Demo password constant is centralized: `DatabaseManager.DEFAULT_DEMO_PASSWORD`.
 

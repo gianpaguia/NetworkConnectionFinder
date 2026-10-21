@@ -86,8 +86,8 @@ public class ConnectionDao {
 
     public boolean removeConnection(String u, String v) {
         String sql = """
-            DELETE FROM connections 
-            WHERE (requester_id = ? AND receiver_id = ?) 
+            DELETE FROM connections
+            WHERE (requester_id = ? AND receiver_id = ?)
                OR (requester_id = ? AND receiver_id = ?);
         """;
         try (java.sql.Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -96,6 +96,20 @@ public class ConnectionDao {
             stmt.setString(3, v);
             stmt.setString(4, u);
             return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /** Removes every connection row involving the user (used when their account goes away). */
+    public boolean deleteConnectionsForUser(String studentId) {
+        String sql = "DELETE FROM connections WHERE requester_id = ? OR receiver_id = ?;";
+        try (java.sql.Connection conn = db.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, studentId);
+            stmt.setString(2, studentId);
+            stmt.executeUpdate();
+            return true;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;

@@ -4,6 +4,7 @@ import java.util.function.BiConsumer;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.StackPane;
@@ -17,7 +18,7 @@ public class PasswordRevealField extends StackPane {
 
     private final PasswordField maskedField = new PasswordField();
     private final TextField plainField = new TextField();
-    private final Button eyeButton = new Button("👁");
+    private final Button eyeButton = new Button();
 
     public PasswordRevealField(String promptText) {
         maskedField.setPromptText(promptText);
@@ -30,8 +31,10 @@ public class PasswordRevealField extends StackPane {
         plainField.setStyle("-fx-padding: 10px 34px 10px 14px;");
 
         eyeButton.setAccessibleText("Show password");
+        eyeButton.setGraphic(SvgIcons.icon(SvgIcons.Glyph.EYE, 15));
+        eyeButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         eyeButton.setStyle("-fx-background-color: transparent; -fx-cursor: hand;"
-                + " -fx-padding: 0 8 0 0; -fx-text-fill: -fx-ink-soft; -fx-font-size: 14px; -fx-focus-traversable: false;");
+                + " -fx-padding: 0 8 0 0; -fx-focus-traversable: false;");
         StackPane.setAlignment(eyeButton, Pos.CENTER_RIGHT);
 
         eyeButton.setOnAction(e -> {
@@ -42,6 +45,7 @@ public class PasswordRevealField extends StackPane {
             plainField.setVisible(show);
             plainField.setManaged(show);
             eyeButton.setAccessibleText(show ? "Hide password" : "Show password");
+            eyeButton.setGraphic(SvgIcons.icon(show ? SvgIcons.Glyph.EYE_OFF : SvgIcons.Glyph.EYE, 15));
             (show ? plainField : maskedField).requestFocus();
         });
 

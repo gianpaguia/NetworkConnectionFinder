@@ -6,6 +6,7 @@ import com.networkfinder.service.InputValidator;
 import com.networkfinder.service.ValidationException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -17,7 +18,15 @@ import java.io.File;
 public class RegisterView extends StackPane {
     private final AuthService authService = new AuthService();
     private File selectedIdFile = null;
-    private Label errorLabel;
+    private Label idErrorLabel;
+    private Label firstNameErrorLabel;
+    private Label surnameErrorLabel;
+    private Label middleErrorLabel;
+    private Label suffixErrorLabel;
+    private Label passErrorLabel;
+    private Label confirmPassErrorLabel;
+    private Label uploadErrorLabel;
+    private Label genericErrorLabel;
 
     public RegisterView() {
         setAlignment(Pos.CENTER);
@@ -53,20 +62,14 @@ public class RegisterView extends StackPane {
         VBox card = new VBox(14);
         card.getStyleClass().add("card");
 
-        Label errorLabel = new Label();
-        errorLabel.getStyleClass().add("form-error");
-        errorLabel.setWrapText(true);
-        this.errorLabel = errorLabel;
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
-
         VBox idBox = new VBox(4);
         Label idLabel = new Label("Student ID");
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
-        idField.setPromptText("Numbers only (e.g. 202612345)");
-        idField.setTextFormatter(TextFieldFilters.studentIdFilter(InputValidator.getMaxIdLength()));
-        idBox.getChildren().addAll(idLabel, idField);
+        idField.setPromptText("e.g. 20261001-A (8 digits, dash, one letter)");
+        idField.setTextFormatter(TextFieldFilters.studentIdFilter());
+        idErrorLabel = fieldError();
+        idBox.getChildren().addAll(idLabel, idField, idErrorLabel);
 
         // Row 1: First Name + Surname (both required)
         HBox requiredNamesRow = new HBox(12);
@@ -76,7 +79,8 @@ public class RegisterView extends StackPane {
         TextField firstNameField = new TextField();
         firstNameField.setPromptText("e.g. Juan (letters only)");
         firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
-        firstNameBox.getChildren().addAll(firstNameLabel, firstNameField);
+        firstNameErrorLabel = fieldError();
+        firstNameBox.getChildren().addAll(firstNameLabel, firstNameField, firstNameErrorLabel);
 
         VBox surnameBox = new VBox(4);
         Label surnameLabel = new Label("Surname");
@@ -84,7 +88,8 @@ public class RegisterView extends StackPane {
         TextField surnameField = new TextField();
         surnameField.setPromptText("e.g. Dela Cruz (letters only)");
         surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
-        surnameBox.getChildren().addAll(surnameLabel, surnameField);
+        surnameErrorLabel = fieldError();
+        surnameBox.getChildren().addAll(surnameLabel, surnameField, surnameErrorLabel);
         firstNameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         surnameBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         requiredNamesRow.getChildren().addAll(firstNameBox, surnameBox);
@@ -97,7 +102,8 @@ public class RegisterView extends StackPane {
         TextField middleField = new TextField();
         middleField.setPromptText("1-2 letters (e.g. M)");
         middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
-        middleBox.getChildren().addAll(middleLabel, middleField);
+        middleErrorLabel = fieldError();
+        middleBox.getChildren().addAll(middleLabel, middleField, middleErrorLabel);
 
         VBox suffixBox = new VBox(4);
         Label suffixLabel = new Label("Suffix (Optional)");
@@ -105,7 +111,8 @@ public class RegisterView extends StackPane {
         TextField suffixField = new TextField();
         suffixField.setPromptText("1-2 letters (e.g. Jr)");
         suffixField.setTextFormatter(TextFieldFilters.shortNameFilter());
-        suffixBox.getChildren().addAll(suffixLabel, suffixField);
+        suffixErrorLabel = fieldError();
+        suffixBox.getChildren().addAll(suffixLabel, suffixField, suffixErrorLabel);
         middleBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         suffixBox.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
         optionalNamesRow.getChildren().addAll(middleBox, suffixBox);
@@ -114,13 +121,15 @@ public class RegisterView extends StackPane {
         Label passLabel = new Label("Password");
         passLabel.getStyleClass().add("field-label");
         PasswordRevealField passField = new PasswordRevealField("Create Password");
-        passBox.getChildren().addAll(passLabel, passField);
+        passErrorLabel = fieldError();
+        passBox.getChildren().addAll(passLabel, passField, passErrorLabel);
 
         VBox confirmPassBox = new VBox(4);
         Label confirmPassLabel = new Label("Confirm Password");
         confirmPassLabel.getStyleClass().add("field-label");
         PasswordRevealField confirmPassField = new PasswordRevealField("Confirm Password");
-        confirmPassBox.getChildren().addAll(confirmPassLabel, confirmPassField);
+        confirmPassErrorLabel = fieldError();
+        confirmPassBox.getChildren().addAll(confirmPassLabel, confirmPassField, confirmPassErrorLabel);
 
         VBox verifSection = new VBox(8);
         verifSection.setPadding(new Insets(8, 0, 0, 0));
@@ -136,8 +145,7 @@ public class RegisterView extends StackPane {
         uploadBox.getStyleClass().add("upload-box");
         uploadBox.setMinHeight(130);
 
-        Label camIcon = new Label("📷");
-        camIcon.setStyle("-fx-font-size: 26px;");
+        Node camIcon = SvgIcons.icon(SvgIcons.Glyph.CAMERA, 32, "svg-icon-success");
 
         Label uploadText = new Label("Upload Student ID");
         uploadText.setStyle("-fx-font-size: 14px; -fx-font-weight: 600; -fx-text-fill: -fx-green;");
@@ -164,14 +172,14 @@ public class RegisterView extends StackPane {
             if (file != null) {
                 String imageError = AuthService.validateIdCardImage(file);
                 if (imageError != null) {
-                    showError(imageError);
+                    showFieldError(uploadErrorLabel, imageError);
                     resetUploadSelection(uploadText, formatText, previewImage);
                     return;
                 }
 
                 Image img = new Image(file.toURI().toString());
                 if (img.isError()) {
-                    showError("This file is not a readable image. Please choose a different file.");
+                    showFieldError(uploadErrorLabel, "This file is not a readable image. Please choose a different file.");
                     resetUploadSelection(uploadText, formatText, previewImage);
                     return;
                 }
@@ -185,7 +193,8 @@ public class RegisterView extends StackPane {
             }
         });
 
-        verifSection.getChildren().addAll(verifTitle, verifDesc, uploadBox);
+        uploadErrorLabel = fieldError();
+        verifSection.getChildren().addAll(verifTitle, verifDesc, uploadBox, uploadErrorLabel);
 
         Button submitBtn = new Button("Create Account");
         submitBtn.getStyleClass().add("button-primary");
@@ -198,21 +207,52 @@ public class RegisterView extends StackPane {
             String middleInitial = middleField.getText().trim();
             String surname = surnameField.getText().trim();
             String suffix = suffixField.getText().trim();
-            String pass = passField.getValue();
-            String confirm = confirmPassField.getValue();
+            String pass = passField.getValue().trim();
+            String confirm = confirmPassField.getValue().trim();
 
-            if (studentId.isEmpty() || firstName.isEmpty() || surname.isEmpty() || pass.isEmpty()) {
-                showError("Please fill in all required fields.");
-                return;
+            clearFieldErrors();
+
+            boolean valid = true;
+
+            String idError = InputValidator.checkStudentId(studentId);
+            if (idError != null) {
+                showFieldError(idErrorLabel, idError);
+                valid = false;
             }
-
-            if (!pass.equals(confirm)) {
-                showError("Passwords do not match.");
-                return;
+            String firstNameError = InputValidator.checkFirstName(firstName);
+            if (firstNameError != null) {
+                showFieldError(firstNameErrorLabel, firstNameError);
+                valid = false;
             }
-
+            String surnameError = InputValidator.checkSurname(surname);
+            if (surnameError != null) {
+                showFieldError(surnameErrorLabel, surnameError);
+                valid = false;
+            }
+            String middleError = InputValidator.checkMiddleInitial(middleInitial);
+            if (middleError != null) {
+                showFieldError(middleErrorLabel, middleError);
+                valid = false;
+            }
+            String suffixError = InputValidator.checkSuffix(suffix);
+            if (suffixError != null) {
+                showFieldError(suffixErrorLabel, suffixError);
+                valid = false;
+            }
+            String passwordError = InputValidator.checkPassword(pass);
+            if (passwordError != null) {
+                showFieldError(passErrorLabel, passwordError);
+                valid = false;
+            } else if (!pass.equals(confirm)) {
+                showFieldError(confirmPassErrorLabel, "Passwords do not match.");
+                valid = false;
+            }
             if (selectedIdFile == null) {
-                showError("Please upload a clear picture of your Student ID for administrator verification.");
+                showFieldError(uploadErrorLabel, "Please upload a clear picture of your Student ID for administrator verification.");
+                valid = false;
+            }
+
+            if (!valid) {
                 return;
             }
 
@@ -222,12 +262,12 @@ public class RegisterView extends StackPane {
                 if (created != null) {
                     ScreenNavigator.showRegistrationSubmitted(created);
                 } else {
-                    showError("Failed to create account. Please try again.");
+                    showFieldError(genericErrorLabel, "Failed to create account. Please try again.");
                 }
             } catch (ValidationException ve) {
-                showError(ve.getMessage());
+                routeValidationError(ve.getMessage());
             } catch (Exception ex) {
-                showError("Error saving account: " + ex.getMessage());
+                showFieldError(genericErrorLabel, "Error saving account: " + ex.getMessage());
             }
         });
 
@@ -240,7 +280,8 @@ public class RegisterView extends StackPane {
         loginLink.setOnAction(e -> ScreenNavigator.showStudentLogin());
         loginBox.getChildren().addAll(already, loginLink);
 
-        card.getChildren().addAll(errorLabel, idBox, requiredNamesRow, optionalNamesRow, passBox, confirmPassBox, verifSection, submitBtn, loginBox);
+        genericErrorLabel = fieldError();
+        card.getChildren().addAll(idBox, requiredNamesRow, optionalNamesRow, passBox, confirmPassBox, verifSection, submitBtn, genericErrorLabel, loginBox);
         container.getChildren().addAll(titleBox, card);
 
         StackPane centeredWrap = new StackPane(container);
@@ -252,10 +293,48 @@ public class RegisterView extends StackPane {
         getChildren().add(split);
     }
 
-    private void showError(String message) {
-        errorLabel.setText(message);
-        errorLabel.setVisible(true);
-        errorLabel.setManaged(true);
+    private static Label fieldError() {
+        Label label = new Label();
+        label.getStyleClass().add("form-error");
+        label.setWrapText(true);
+        label.setVisible(false);
+        label.setManaged(false);
+        return label;
+    }
+
+    private static void showFieldError(Label label, String message) {
+        label.setText(message);
+        label.setVisible(true);
+        label.setManaged(true);
+    }
+
+    private void clearFieldErrors() {
+        Label[] labels = {idErrorLabel, firstNameErrorLabel, surnameErrorLabel, middleErrorLabel,
+                suffixErrorLabel, passErrorLabel, confirmPassErrorLabel, uploadErrorLabel, genericErrorLabel};
+        for (Label label : labels) {
+            label.setText(null);
+            label.setVisible(false);
+            label.setManaged(false);
+        }
+    }
+
+    private void routeValidationError(String message) {
+        String msg = message == null ? "" : message.toLowerCase();
+        if (msg.contains("password")) {
+            showFieldError(passErrorLabel, message);
+        } else if (msg.contains("student id")) {
+            showFieldError(idErrorLabel, message);
+        } else if (msg.contains("first name")) {
+            showFieldError(firstNameErrorLabel, message);
+        } else if (msg.contains("surname")) {
+            showFieldError(surnameErrorLabel, message);
+        } else if (msg.contains("middle")) {
+            showFieldError(middleErrorLabel, message);
+        } else if (msg.contains("suffix")) {
+            showFieldError(suffixErrorLabel, message);
+        } else {
+            showFieldError(genericErrorLabel, message);
+        }
     }
 
     private void resetUploadSelection(Label uploadText, Label formatText, ImageView previewImage) {

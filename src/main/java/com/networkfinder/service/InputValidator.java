@@ -7,13 +7,13 @@ package com.networkfinder.service;
  */
 public final class InputValidator {
 
-    private static final String STUDENT_ID_PATTERN = "^[0-9]+$";
+    private static final String STUDENT_ID_PATTERN = "^[0-9]{8}-[A-Z]$";
     private static final String PERSON_NAME_PATTERN = "^[A-Za-z]+(?: [A-Za-z]+)*$";
     private static final String SHORT_NAME_PATTERN = "^[A-Za-z]{1,2}$";
     private static final String PASSWORD_DIGIT_PATTERN = ".*\\d.*";
     private static final String PASSWORD_LETTER_PATTERN = ".*[A-Za-z].*";
 
-    private static final int MAX_ID_LENGTH = 30;
+    private static final int VALID_ID_LENGTH = 10;
     private static final int FIRST_NAME_MAX_LENGTH = 30;
     private static final int SURNAME_MAX_LENGTH = 40;
     private static final int MAX_SECTION_LENGTH = 30;
@@ -25,24 +25,32 @@ public final class InputValidator {
     }
 
     public static int getMaxIdLength() {
-        return MAX_ID_LENGTH;
+        return VALID_ID_LENGTH;
+    }
+
+    /** Normalizes a student ID: trims surrounding spaces and uppercases the letter. */
+    public static String normalizeStudentId(String rawId) {
+        return rawId == null ? "" : rawId.trim().toUpperCase();
     }
 
     public static int getMaxNameLength() {
         return SURNAME_MAX_LENGTH;
     }
 
-    /** Valid: non-blank digits only (no letters or symbols), at most 30 chars. */
+    /**
+     * Valid format: 00000000-A (8 digits, one dash, then one letter).
+     * Typed lowercase letters are normalized to uppercase before checking.
+     */
     public static String checkStudentId(String rawId) {
-        String id = rawId == null ? "" : rawId.trim();
+        String id = normalizeStudentId(rawId);
         if (id.isEmpty()) {
             return "Student ID is required.";
         }
-        if (id.length() > MAX_ID_LENGTH) {
-            return "Student ID must be at most " + MAX_ID_LENGTH + " characters.";
+        if (id.length() != VALID_ID_LENGTH) {
+            return "Student ID must be exactly 10 characters: the format 00000000-A (8 digits, a dash, then one letter).";
         }
         if (!id.matches(STUDENT_ID_PATTERN)) {
-            return "Student ID must contain numbers only (no letters, symbols, or spaces).";
+            return "Student ID must follow the format 00000000-A (8 digits, a dash, then one letter).";
         }
         return null;
     }

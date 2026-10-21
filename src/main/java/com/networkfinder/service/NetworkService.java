@@ -1,10 +1,12 @@
 package com.networkfinder.service;
 
+import com.networkfinder.database.ArchiveDao;
 import com.networkfinder.database.ConnectionDao;
 import com.networkfinder.database.DatabaseManager;
 import com.networkfinder.database.ProfileDao;
 import com.networkfinder.database.UserDao;
 import com.networkfinder.dsa.*;
+import com.networkfinder.model.ArchiveEntry;
 import com.networkfinder.model.ConnectionStatus;
 import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
@@ -22,6 +24,7 @@ public class NetworkService {
     private final UserDao userDao = new UserDao();
     private final ProfileDao profileDao = new ProfileDao();
     private final ConnectionDao connectionDao = new ConnectionDao();
+    private final ArchiveDao archiveDao = new ArchiveDao();
 
     private NetworkService() {
         reloadGraph();
@@ -167,7 +170,8 @@ public class NetworkService {
     public synchronized boolean adminAddStudent(String studentId, String firstName, String middleInitial,
                                                 String surname, String suffix, String course,
                                                 String yearLevel, String section) throws ValidationException {
-        String idError = InputValidator.checkStudentId(studentId);
+        String cleanId = InputValidator.normalizeStudentId(studentId);
+        String idError = InputValidator.checkStudentId(cleanId);
         if (idError != null) {
             throw new ValidationException(idError);
         }
@@ -195,11 +199,10 @@ public class NetworkService {
         if (sectionError != null) {
             throw new ValidationException(sectionError);
         }
-        if (userDao.getUserById(studentId) != null) {
+        if (userDao.getUserById(cleanId) != null) {
             throw new ValidationException("This Student ID is already registered.");
         }
 
-        String cleanId = studentId.trim();
         String cleanFirst = firstName.trim();
         String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
         String cleanSurname = surname.trim();
@@ -313,6 +316,12 @@ public class NetworkService {
         return true;
     }
 
+    /**
+     * Soft-deletes a student: the account and its profile are first copied
+     * into the archive so the admin can restore them, then the account is
+     * removed from the active tables and the graph. Admin accounts can never
+     * be deleted.
+     */
     public synchronized boolean adminDeleteStudent(String studentId) {
         if (studentId == null) {
             return false;
@@ -321,10 +330,38 @@ public class NetworkService {
         if (user == null || user.getRole() == Role.ADMIN) {
             return false;
         }
+        if (!archiveDao.archiveUser(studentId)) {
+            return false;
+        }
         boolean deleted = userDao.deleteUser(studentId);
         profileDao.deleteProfile(studentId);
+        connectionDao.deleteConnectionsForUser(studentId);
         graph.removeVertex(studentId);
         return deleted;
+    }
+
+    public List<ArchiveEntry> getArchivedStudents() {
+        return archiveDao.getArchiveEntries();
+    }
+
+    public boolean isStudentIdInUse(String studentId) {
+        return studentId != null && userDao.getUserById(studentId) != null;
+    }
+
+    public synchronized boolean restoreArchivedStudent(String studentId, String archivedAt) {
+        boolean restored = archiveDao.restoreUser(studentId, archivedAt);
+        if (restored) {
+            reloadGraph();
+        }
+        return restored;
+    }
+
+    public synchronized boolean purgeArchivedStudent(String studentId, String archivedAt) {
+        boolean purged = archiveDao.purgeUser(studentId, archivedAt);
+        if (purged) {
+            connectionDao.deleteConnectionsForUser(studentId);
+        }
+        return purged;
     }
 
     /**

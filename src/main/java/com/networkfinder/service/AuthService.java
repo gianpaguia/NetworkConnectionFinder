@@ -54,16 +54,34 @@ public class AuthService {
     }
 
     public LoginResult authenticate(String studentId, String password) {
-        if (studentId == null || studentId.isBlank() || password == null || password.isBlank()) {
+        if (studentId == null || studentId.isBlank() || password == null || password == null || password.isBlank()) {
             return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Please enter both ID and password.");
         }
 
-        User user = userDao.getUserById(studentId.trim());
+        String cleanId = studentId.trim();
+
+        // Passwords are edge-trimmed only: the validator never issues passwords
+        // with leading/trailing spaces, so stray clipboard whitespace must not
+        // lock a student out at login.
+        String cleanPassword = password.trim();
+        if (cleanPassword.isEmpty() || cleanId.isEmpty()) {
+            return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Please enter both ID and password.");
+        }
+
+        User user = userDao.getUserById(cleanId);
+        if (user == null) {
+            // Student IDs are seeded uppercase, the admin username is lowercase:
+            // tolerate case typos either way instead of failing strictly here.
+            user = userDao.getUserById(cleanId.toUpperCase());
+        }
+        if (user == null) {
+            user = userDao.getUserById(cleanId.toLowerCase());
+        }
         if (user == null) {
             return new LoginResult(AuthStatus.USER_NOT_FOUND, null, "Invalid Student ID or password.");
         }
 
-        String hashedInput = DatabaseManager.hashPassword(password);
+        String hashedInput = DatabaseManager.hashPassword(cleanPassword);
         if (!constantTimeEquals(hashedInput, user.getPasswordHash())) {
             return new LoginResult(AuthStatus.INVALID_CREDENTIALS, null, "Invalid Student ID or password.");
         }
@@ -81,7 +99,7 @@ public class AuthService {
     }
 
     public boolean isStudentIdRegistered(String studentId) {
-        return userDao.getUserById(studentId.trim()) != null;
+        return userDao.getUserById(InputValidator.normalizeStudentId(studentId)) != null;
     }
 
     private static final long MAX_ID_IMAGE_BYTES = 5L * 1024 * 1024;
@@ -120,7 +138,10 @@ public class AuthService {
         if (suffixError != null) {
             throw new ValidationException(suffixError);
         }
-        String passwordError = InputValidator.checkPassword(password);
+        // Validate and store the edge-trimmed password so registration and
+        // login hashing always agree (login also trims; see authenticate).
+        String cleanPassword = password == null ? null : password.trim();
+        String passwordError = InputValidator.checkPassword(cleanPassword);
         if (passwordError != null) {
             throw new ValidationException(passwordError);
         }
@@ -128,7 +149,7 @@ public class AuthService {
             throw new ValidationException("This Student ID is already registered.");
         }
 
-        String cleanId = studentId.trim();
+        String cleanId = InputValidator.normalizeStudentId(studentId);
         String cleanFirst = firstName.trim();
         String cleanMiddle = middleInitial == null ? "" : middleInitial.trim();
         String cleanSurname = surname.trim();
@@ -138,7 +159,7 @@ public class AuthService {
         User user = new User();
         user.setStudentId(cleanId);
         user.setNames(cleanFirst, cleanMiddle, cleanSurname, cleanSuffix);
-        user.setPasswordHash(DatabaseManager.hashPassword(password));
+        user.setPasswordHash(DatabaseManager.hashPassword(cleanPassword));
         user.setIdCardImagePath(savedImagePath);
         user.setRole(Role.STUDENT);
         user.setVerificationStatus(VerificationStatus.PENDING);

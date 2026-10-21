@@ -2,6 +2,7 @@ package com.networkfinder.ui;
 
 import com.networkfinder.database.ProfileDao;
 import com.networkfinder.database.UserDao;
+import com.networkfinder.model.ArchiveEntry;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
@@ -19,6 +20,7 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 
 import java.io.File;
@@ -32,6 +34,22 @@ public class AdminDashboardView extends BorderPane {
 
     private final StackPane contentArea = new StackPane();
     private Button activeNavBtn;
+    private Button idVerifNavBtn;
+
+    /**
+     * Sidebar label for the verification queue includes the live pending count
+     * so the admin notices new submissions without visiting the screen.
+     */
+    private String verificationNavText() {
+        int pending = verificationService.getPendingVerifications().size();
+        return pending == 0 ? "ID Verification" : "ID Verification (" + pending + ")";
+    }
+
+    private void refreshPendingBadge() {
+        if (idVerifNavBtn != null) {
+            idVerifNavBtn.setText(verificationNavText());
+        }
+    }
 
     public AdminDashboardView() {
         getStyleClass().add("fluent-root-pane");
@@ -62,8 +80,11 @@ public class AdminDashboardView extends BorderPane {
         Label userMgmtLabel = new Label("User management");
         userMgmtLabel.getStyleClass().add("sidebar-section-heading");
 
-        Button idVerifBtn = createNavButton("📋  ID Verification", true);
-        Button accountsBtn = createNavButton("👥  Student Accounts", false);
+        Button idVerifBtn = createNavButton(verificationNavText(), true, SvgIcons.Glyph.CLIPBOARD_LIST);
+        idVerifNavBtn = idVerifBtn;
+
+        Button accountsBtn = createNavButton("Student Accounts", false, SvgIcons.Glyph.USERS);
+        Button archiveBtn = createNavButton("Archive", false, SvgIcons.Glyph.ARCHIVE);
 
         idVerifBtn.setOnAction(e -> {
             setActiveNav(idVerifBtn);
@@ -75,27 +96,31 @@ public class AdminDashboardView extends BorderPane {
             showAccountsScreen();
         });
 
+        archiveBtn.setOnAction(e -> {
+            setActiveNav(archiveBtn);
+            showArchiveScreen();
+        });
+
         Label networkLabel = new Label("Network");
         networkLabel.getStyleClass().add("sidebar-section-heading");
 
-        Button netOverviewBtn = createNavButton("🌐  Network Graph", false);
+        Button netOverviewBtn = createNavButton("Network Graph", false, SvgIcons.Glyph.SHARE_2);
         netOverviewBtn.setOnAction(e -> {
             setActiveNav(netOverviewBtn);
             showNetworkOverviewScreen();
         });
 
-        Button connManagerBtn = createNavButton("🔗  Connections Manager", false);
+        Button connManagerBtn = createNavButton("Connections Manager", false, SvgIcons.Glyph.LINK);
         connManagerBtn.setOnAction(e -> {
             setActiveNav(connManagerBtn);
             showConnectionsManagerScreen();
         });
 
-        Button logoutBtn = new Button("🚪  Logout");
-        logoutBtn.getStyleClass().add("nav-button");
+        Button logoutBtn = createNavButton("Logout", false, SvgIcons.Glyph.LOG_OUT);
         logoutBtn.setStyle("-fx-text-fill: -fx-danger;");
         logoutBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
 
-        VBox navBox = new VBox(8, userMgmtLabel, idVerifBtn, accountsBtn, networkLabel, netOverviewBtn, connManagerBtn);
+        VBox navBox = new VBox(8, userMgmtLabel, idVerifBtn, accountsBtn, archiveBtn, networkLabel, netOverviewBtn, connManagerBtn);
         VBox logoutBox = new VBox(logoutBtn);
 
         sidebar.setTop(titleBox);
@@ -106,7 +131,18 @@ public class AdminDashboardView extends BorderPane {
     }
 
     private Button createNavButton(String text, boolean active) {
+        return createNavButton(text, active, null);
+    }
+
+    private Button createNavButton(String text, boolean active, SvgIcons.Glyph glyph) {
         Button btn = new Button(text);
+        if (glyph != null) {
+            if (glyph == SvgIcons.Glyph.LOG_OUT) {
+                btn.setGraphic(SvgIcons.icon(glyph, 15, "svg-icon-danger"));
+            } else {
+                btn.setGraphic(SvgIcons.icon(glyph, 15));
+            }
+        }
         if (active) {
             btn.getStyleClass().add("nav-button-active");
             activeNavBtn = btn;
@@ -130,6 +166,8 @@ public class AdminDashboardView extends BorderPane {
     // SCREEN 5 — ADMIN VERIFICATION DASHBOARD QUEUE
     // ==================================================
     private void showVerificationQueueScreen() {
+        refreshPendingBadge();
+
         VBox mainBox = new VBox(20);
         mainBox.setPadding(new Insets(28, 32, 28, 32));
 
@@ -149,8 +187,7 @@ public class AdminDashboardView extends BorderPane {
             emptyCard.setAlignment(Pos.CENTER);
             emptyCard.setPadding(new Insets(40));
 
-            Label checkIcon = new Label("✓");
-            checkIcon.setStyle("-fx-font-size: 36px; -fx-text-fill: -fx-green;");
+            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 36, "svg-icon-success");
             Label emptyText = new Label("No pending ID verification requests at this time.");
             emptyText.setStyle("-fx-font-size: 15px; -fx-font-weight: 600; -fx-text-fill: -fx-ink;");
             Label subEmpty = new Label("All registered students have been reviewed.");
@@ -185,7 +222,9 @@ public class AdminDashboardView extends BorderPane {
                     if (empty || item == null) {
                         setGraphic(null);
                     } else {
-                        Label badge = new Label("🟡 Pending");
+                        Label badge = new Label("Pending");
+                        badge.setGraphic(new Circle(3.5));
+                        badge.setGraphicTextGap(6);
                         badge.getStyleClass().add("badge-pending");
                         setGraphic(badge);
                     }
@@ -282,13 +321,7 @@ public class AdminDashboardView extends BorderPane {
 
         Button rejectBtn = new Button("✕ REJECT");
         rejectBtn.getStyleClass().add("button-danger");
-        rejectBtn.setOnAction(e -> {
-            if (!verificationService.rejectStudent(user.getStudentId())) {
-                UiDialogs.showError("Could not reject this student. Please try again.");
-                return;
-            }
-            showVerificationQueueScreen();
-        });
+        rejectBtn.setOnAction(e -> confirmRejectStudent(user));
 
         buttonBox.getChildren().addAll(approveBtn, rejectBtn);
 
@@ -322,7 +355,8 @@ public class AdminDashboardView extends BorderPane {
                 imgContainer.getChildren().add(errImg);
             }
         } else {
-            Label placeholder = new Label("📷 [ Placeholder: No Student ID image uploaded ]");
+            Label placeholder = new Label("[ Placeholder: No Student ID image uploaded ]");
+            placeholder.setGraphic(SvgIcons.icon(SvgIcons.Glyph.CAMERA, 18, "svg-icon"));
             placeholder.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-weight: 600;");
             imgContainer.getChildren().add(placeholder);
         }
@@ -347,6 +381,8 @@ public class AdminDashboardView extends BorderPane {
     // STUDENT ACCOUNTS MANAGEMENT (ADMIN CRUD)
     // ==================================================
     private void showAccountsScreen() {
+        refreshPendingBadge();
+
         VBox mainBox = new VBox(16);
         mainBox.setPadding(new Insets(28, 32, 28, 32));
 
@@ -364,8 +400,9 @@ public class AdminDashboardView extends BorderPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button addStudentBtn = new Button("➕ Add New Student");
+        Button addStudentBtn = new Button("Add New Student");
         addStudentBtn.getStyleClass().add("button-primary");
+        addStudentBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.PLUS, 14, "svg-icon-primary"));
         addStudentBtn.setOnAction(e -> showAddStudentDialog());
 
         topRow.getChildren().addAll(titleBox, spacer, addStudentBtn);
@@ -405,7 +442,9 @@ public class AdminDashboardView extends BorderPane {
                     b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
                     setGraphic(b);
                 } else if ("PENDING".equals(item)) {
-                    Label b = new Label("🟡 Pending");
+                    Label b = new Label("Pending");
+                    b.setGraphic(new Circle(3.5));
+                    b.setGraphicTextGap(6);
                     b.getStyleClass().add("badge-pending");
                     setGraphic(b);
                 } else {
@@ -419,9 +458,10 @@ public class AdminDashboardView extends BorderPane {
         TableColumn<User, Void> actionCol = new TableColumn<>("Actions");
         actionCol.setCellFactory(col -> new TableCell<>() {
             private final Button editBtn = new Button("Edit");
+            private final Button approveBtn = new Button("Approve");
             private final Button resetBtn = new Button("Reset PW");
             private final Button delBtn = new Button("Delete");
-            private final HBox btnBox = new HBox(6, editBtn, resetBtn, delBtn);
+            private final HBox btnBox = new HBox(6, editBtn, approveBtn, resetBtn, delBtn);
 
             {
                 btnBox.setAlignment(Pos.CENTER);
@@ -430,6 +470,13 @@ public class AdminDashboardView extends BorderPane {
                 editBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     showEditStudentDialog(u);
+                });
+
+                approveBtn.getStyleClass().add("button-primary");
+                approveBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                approveBtn.setOnAction(e -> {
+                    User u = getTableView().getItems().get(getIndex());
+                    confirmApproveFromAccounts(u);
                 });
 
                 resetBtn.getStyleClass().add("button-secondary");
@@ -459,6 +506,9 @@ public class AdminDashboardView extends BorderPane {
                         admLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 11px; -fx-font-style: italic;");
                         setGraphic(admLbl);
                     } else {
+                        boolean needsApproval = u.getVerificationStatus() != com.networkfinder.model.VerificationStatus.APPROVED;
+                        approveBtn.setVisible(needsApproval);
+                        approveBtn.setManaged(needsApproval);
                         setGraphic(btnBox);
                     }
                 }
@@ -488,8 +538,8 @@ public class AdminDashboardView extends BorderPane {
         grid.setPadding(new Insets(20, 20, 10, 10));
 
         TextField idField = new TextField();
-        idField.setPromptText("Numbers only (e.g. 202610011)");
-        idField.setTextFormatter(TextFieldFilters.studentIdFilter(InputValidator.getMaxIdLength()));
+        idField.setPromptText("e.g. 20261001-A (8 digits, dash, one letter)");
+        idField.setTextFormatter(TextFieldFilters.studentIdFilter());
 
         TextField firstNameField = new TextField();
         firstNameField.setPromptText("e.g. Juan (letters only)");
@@ -766,11 +816,43 @@ public class AdminDashboardView extends BorderPane {
         });
     }
 
+    /**
+     * rejecting a student is irreversible from the queue (they cannot sign in
+     * afterwards and would have to register again), so the admin must confirm
+     * the exact account being rejected.
+     */
+    private void confirmRejectStudent(User user) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Reject Student");
+        alert.setHeaderText("Are you sure you want to reject this student?");
+        alert.setContentText(
+                user.getFullName() + " (" + user.getStudentId() + ")\n\n" +
+                "Double-check the rejected details against the submitted ID above. " +
+                "Once rejected, the account is marked as REJECTED and the student cannot sign in " +
+                "or join the campus network until the registration is accepted again."
+        );
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!verificationService.rejectStudent(user.getStudentId())) {
+                    UiDialogs.showError("Could not reject this student. Please try again.");
+                    return;
+                }
+                showVerificationQueueScreen();
+            }
+        });
+    }
+
     private void confirmDeleteStudent(User user) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Delete Student");
-        alert.setHeaderText("Remove " + user.getFullName() + " (" + user.getStudentId() + ")");
-        alert.setContentText("Are you sure you want to permanently delete this student? All of their incident connections, profile data, and graph vertex entries will be removed.");
+        alert.setHeaderText("Are you sure you want to delete this student?");
+        alert.setContentText(
+                user.getFullName() + " (" + user.getStudentId() + ")\n\n" +
+                "All of their incident connections and graph vertex entries will be removed. " +
+                "The account and its profile details are kept in the Archive, where it can be restored later."
+        );
         UiDialogs.styleDialogPane(alert.getDialogPane());
 
         alert.showAndWait().ifPresent(response -> {
@@ -779,6 +861,220 @@ public class AdminDashboardView extends BorderPane {
                     UiDialogs.showError("Could not delete this student. Administrator accounts cannot be removed here.");
                 }
                 showAccountsScreen();
+            }
+        });
+    }
+
+    /**
+     * Approving from the directory covers pending or rejected accounts that
+     * never went through the verification queue (e.g. hand-recovered students).
+     */
+    private void confirmApproveFromAccounts(User user) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Approve Student");
+        alert.setHeaderText("Are you sure you want to approve this student?");
+        alert.setContentText(
+                user.getFullName() + " (" + user.getStudentId() + ")\n\n" +
+                "Approving grants sign-in access and adds the student to the campus network graph. "
+                + "Verify their details first; rejected accounts in the demo had their registration declined.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!verificationService.approveStudent(user.getStudentId())) {
+                    UiDialogs.showError("Could not approve this student. Please try again.");
+                    return;
+                }
+                networkService.reloadGraph();
+                refreshPendingBadge();
+                showAccountsScreen();
+            }
+        });
+    }
+
+    // ==================================================
+    // ARCHIVE (DELETED ACCOUNTS, RESTORE / PURGE)
+    // ==================================================
+    private void showArchiveScreen() {
+        refreshPendingBadge();
+
+        VBox mainBox = new VBox(16);
+        mainBox.setPadding(new Insets(28, 32, 28, 32));
+
+        VBox header = new VBox(4);
+        Label heading = new Label("Deleted Accounts Archive");
+        heading.getStyleClass().add("screen-heading");
+        Label subtitle = new Label(
+                "Deleted student accounts are kept here. Restoring puts the account and its profile "
+                + "back into the network with the verification status it had before deletion; "
+                + "connections are not restored.");
+        subtitle.getStyleClass().add("screen-subtitle");
+        subtitle.setWrapText(true);
+        header.getChildren().addAll(heading, subtitle);
+
+        List<ArchiveEntry> entries = networkService.getArchivedStudents();
+
+        if (entries.isEmpty()) {
+            VBox emptyCard = new VBox(12);
+            emptyCard.getStyleClass().add("card");
+            emptyCard.setAlignment(Pos.CENTER);
+            emptyCard.setPadding(new Insets(40));
+
+            Node icon = SvgIcons.icon(SvgIcons.Glyph.ARCHIVE, 34);
+            Label emptyText = new Label("The archive is empty.");
+            emptyText.setStyle("-fx-font-size: 15px; -fx-font-weight: 600; -fx-text-fill: -fx-ink;");
+            Label subEmpty = new Label("Student accounts you delete from Student Accounts will be kept here.");
+            subEmpty.setStyle("-fx-text-fill: -fx-ink-soft;");
+
+            emptyCard.getChildren().addAll(icon, emptyText, subEmpty);
+            mainBox.getChildren().addAll(header, emptyCard);
+        } else {
+            Label countLabel = new Label(entries.size() + " account(s) in the archive");
+            countLabel.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink-soft;");
+
+            TableView<ArchiveEntry> table = new TableView<>();
+            table.getStyleClass().add("table-view");
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+            TableColumn<ArchiveEntry, String> idCol = new TableColumn<>("Student ID");
+            idCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getUser().getStudentId()));
+
+            TableColumn<ArchiveEntry, String> nameCol = new TableColumn<>("Name");
+            nameCol.setCellValueFactory(data -> new SimpleStringProperty(
+                    data.getValue().getUser().getFullName() != null
+                            ? data.getValue().getUser().getFullName()
+                            : data.getValue().getUser().getStudentId()));
+
+            TableColumn<ArchiveEntry, String> courseCol = new TableColumn<>("Course");
+            courseCol.setCellValueFactory(data -> new SimpleStringProperty(
+                    data.getValue().getProfile() != null && data.getValue().getProfile().getCourse() != null
+                            ? data.getValue().getProfile().getCourse()
+                            : "-"));
+
+            TableColumn<ArchiveEntry, String> statusCol = new TableColumn<>("Verification");
+            statusCol.setCellValueFactory(data -> new SimpleStringProperty(
+                    data.getValue().getUser().getVerificationStatus().name()));
+            statusCol.setCellFactory(col -> new TableCell<>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setGraphic(null);
+                    } else if ("APPROVED".equals(item)) {
+                        Label b = new Label("✓ Approved");
+                        b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                        setGraphic(b);
+                    } else if ("PENDING".equals(item)) {
+                        Label b = new Label("Pending");
+                        b.setGraphic(new Circle(3.5));
+                        b.setGraphicTextGap(6);
+                        b.getStyleClass().add("badge-pending");
+                        setGraphic(b);
+                    } else {
+                        Label b = new Label("✕ " + item);
+                        b.setStyle("-fx-background-color: -fx-danger-tint; -fx-text-fill: -fx-danger; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                        setGraphic(b);
+                    }
+                }
+            });
+
+            TableColumn<ArchiveEntry, String> deletedCol = new TableColumn<>("Deleted On");
+            deletedCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getArchivedAtDisplay()));
+
+            TableColumn<ArchiveEntry, Void> actionCol = new TableColumn<>("Actions");
+            actionCol.setCellFactory(col -> new TableCell<>() {
+                private final Button restoreBtn = new Button("Restore");
+                private final Button purgeBtn = new Button("Delete Forever");
+                private final HBox btnBox = new HBox(6, restoreBtn, purgeBtn);
+
+                {
+                    btnBox.setAlignment(Pos.CENTER);
+                    restoreBtn.getStyleClass().add("button-primary");
+                    restoreBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                    restoreBtn.setOnAction(e -> {
+                        ArchiveEntry entry = getTableView().getItems().get(getIndex());
+                        confirmRestoreArchived(entry);
+                    });
+
+                    purgeBtn.getStyleClass().add("button-danger");
+                    purgeBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                    purgeBtn.setOnAction(e -> {
+                        ArchiveEntry entry = getTableView().getItems().get(getIndex());
+                        confirmPurgeArchived(entry);
+                    });
+                }
+
+                @Override
+                protected void updateItem(Void item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setGraphic(empty ? null : btnBox);
+                }
+            });
+
+            table.getColumns().addAll(idCol, nameCol, courseCol, statusCol, deletedCol, actionCol);
+            table.setItems(FXCollections.observableArrayList(entries));
+            table.setPrefHeight(430);
+
+            mainBox.getChildren().addAll(header, countLabel, table);
+        }
+
+        contentArea.getChildren().setAll(mainBox);
+    }
+
+    private void confirmRestoreArchived(ArchiveEntry entry) {
+        String studentId = entry.getUser().getStudentId();
+        String name = entry.getUser().getFullName() != null ? entry.getUser().getFullName() : studentId;
+
+        if (networkService.isStudentIdInUse(studentId)) {
+            UiDialogs.showError(
+                    "Cannot restore " + name + " (" + studentId + "): a live account with this Student ID "
+                    + "already exists. Delete that account first, or remove this archived copy if it is obsolete.");
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Restore Account");
+        alert.setHeaderText("Are you sure you want to restore this student?");
+        alert.setContentText(
+                name + " (" + studentId + ")\n\n" +
+                "The account and its profile details will be moved back to Student Accounts. " +
+                "If the student's ID was verified before deletion, they can sign in with their existing password immediately.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!networkService.restoreArchivedStudent(studentId, entry.getArchivedAt())) {
+                    UiDialogs.showError(
+                            "Could not restore " + name + " (" + studentId + "). A live account with this "
+                            + "Student ID may have been created in the meantime.");
+                    return;
+                }
+                UiDialogs.showSuccess(name + " (" + studentId + ") was restored and is listed in Student Accounts again.");
+                showArchiveScreen();
+            }
+        });
+    }
+
+    private void confirmPurgeArchived(ArchiveEntry entry) {
+        String studentId = entry.getUser().getStudentId();
+        String name = entry.getUser().getFullName() != null ? entry.getUser().getFullName() : studentId;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Delete Forever");
+        alert.setHeaderText("Are you sure you want to permanently delete this archived account?");
+        alert.setContentText(
+                name + " (" + studentId + ")\n\n" +
+                "The archived copy and its profile details will be destroyed for good and can never "
+                + "be restored afterwards. This action cannot be undone.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!networkService.purgeArchivedStudent(studentId, entry.getArchivedAt())) {
+                    UiDialogs.showError("Could not delete this archived account. Please try again.");
+                    return;
+                }
+                showArchiveScreen();
             }
         });
     }
@@ -799,8 +1095,9 @@ public class AdminDashboardView extends BorderPane {
         // Card 1: Add Connection
         VBox addCard = new VBox(12);
         addCard.getStyleClass().add("card");
-        Label addTitle = new Label("➕ Add Graph Edge (Connection)");
+        Label addTitle = new Label("Add Graph Edge (Connection)");
         addTitle.getStyleClass().add("card-title");
+        addTitle.setGraphic(SvgIcons.icon(SvgIcons.Glyph.PLUS, 16, "svg-icon-accent"));
 
         HBox formRow = new HBox(14);
         formRow.setAlignment(Pos.CENTER_LEFT);
@@ -871,11 +1168,7 @@ public class AdminDashboardView extends BorderPane {
                 delBtn.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 11px;");
                 delBtn.setOnAction(e -> {
                     String[] pair = getTableView().getItems().get(getIndex());
-                    if (networkService.removeConnection(pair[0], pair[1])) {
-                        showConnectionsManagerScreen();
-                    } else {
-                        UiDialogs.showError("Could not remove this connection.");
-                    }
+                    confirmDisconnectEdge(pair[0], pair[1]);
                 });
             }
 
@@ -894,6 +1187,32 @@ public class AdminDashboardView extends BorderPane {
 
         mainBox.getChildren().addAll(new VBox(4, heading, subtitle), addCard, listCard);
         contentArea.getChildren().setAll(mainBox);
+    }
+
+    private void confirmDisconnectEdge(String studentIdA, String studentIdB) {
+        com.networkfinder.dsa.StudentNode nodeA = networkService.getGraph().getNode(studentIdA);
+        com.networkfinder.dsa.StudentNode nodeB = networkService.getGraph().getNode(studentIdB);
+        String nameA = nodeA != null ? nodeA.getFullName() + " (" + studentIdA + ")" : studentIdA;
+        String nameB = nodeB != null ? nodeB.getFullName() + " (" + studentIdB + ")" : studentIdB;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Disconnect Students");
+        alert.setHeaderText("Are you sure you want to disconnect these students?");
+        alert.setContentText(
+                nameA + "  ⇄  " + nameB + "\n\n" +
+                "The graph edge between them will be removed and they will no longer appear as "
+                + "1st-degree connections. They can be connected again from this screen later.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                if (!networkService.removeConnection(studentIdA, studentIdB)) {
+                    UiDialogs.showError("Could not remove this connection.");
+                    return;
+                }
+                showConnectionsManagerScreen();
+            }
+        });
     }
 
     // Secondary screen: Network Graph overview

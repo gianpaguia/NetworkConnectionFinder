@@ -15,6 +15,7 @@ public class MainApp extends Application {
         loadFonts();
 
         DatabaseManager.getInstance();
+        DataSeeder.purgeLegacyStudentIds();
         DataSeeder.seedIfEmpty();
 
         NetworkService.getInstance().reloadGraph();

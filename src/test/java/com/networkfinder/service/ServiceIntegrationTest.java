@@ -6,6 +6,7 @@ import com.networkfinder.database.UserDao;
 import com.networkfinder.dsa.MatchFilter;
 import com.networkfinder.dsa.MatchResult;
 import com.networkfinder.dsa.PathResult;
+import com.networkfinder.model.ArchiveEntry;
 import com.networkfinder.model.Role;
 import com.networkfinder.model.User;
 import com.networkfinder.model.VerificationStatus;
@@ -22,12 +23,31 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class ServiceIntegrationTest {
 
+    static {
+        try {
+            // Point the whole test suite at a disposable database so test runs
+            // (including the destructive adminResetDataset test below) NEVER
+            // wipe the real project database in data/network_finder.db where
+            // manually created accounts live.
+            Path testDb = Files.createTempFile("networkfinder-test-db-", ".db");
+            System.setProperty(DatabaseManager.DB_PATH_PROPERTY, testDb.toAbsolutePath().toString());
+            testDb.toFile().deleteOnExit();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to prepare the isolated test database", e);
+        }
+    }
+
     private static final java.util.concurrent.atomic.AtomicLong TEST_SEQ = new java.util.concurrent.atomic.AtomicLong();
 
-    /** Unique, rule-compliant student ID for each test run (leaves the benchmark dataset untouched). */
+    /**
+     * Unique, rule-compliant student ID for each test run (leaves the benchmark
+     * dataset untouched). Format: 00000000-A — 8 digits plus one dashed letter.
+     */
     private static String uniqueTestId() {
-        // Digits only: the student ID rule has no letters, symbols, or separators.
-        return "2026" + System.currentTimeMillis() + TEST_SEQ.incrementAndGet();
+        long seq = TEST_SEQ.incrementAndGet();
+        long digits = 10000000L + ((System.currentTimeMillis() * 31 + seq * 7919L) % 89999999L);
+        char letter = (char) ('A' + (int) (seq % 26));
+        return String.format("%08d", digits) + "-" + letter;
     }
 
     @BeforeAll
@@ -51,7 +71,7 @@ public class ServiceIntegrationTest {
         AuthService authService = new AuthService();
         VerificationService verificationService = new VerificationService();
 
-        String testId = "2026" + System.currentTimeMillis();
+        String testId = uniqueTestId();
         // 1. Register student
         User student = authService.registerStudent(testId, "Test", null, "Student", null, "pass1234", null);
         assertNotNull(student);
@@ -78,13 +98,13 @@ public class ServiceIntegrationTest {
         NetworkService netService = NetworkService.getInstance();
         netService.reloadGraph();
 
-        // Check seeded student Juan Dela Cruz (2026-10001) to Daniel Padilla (2026-10009)
+        // Check seeded student Juan Dela Cruz (20260001-A) to Daniel Padilla (20260009-I)
         // Expected route: Juan -> Maria -> Patricia -> Christian -> Daniel (or via Angel)
-        PathResult pathResult = netService.findShortestPath("2026-10001", "2026-10009");
+        PathResult pathResult = netService.findShortestPath("20260001-A", "20260009-I");
         assertTrue(pathResult.isReachable());
         assertTrue(pathResult.getDegreesOfSeparation() >= 3);
-        assertTrue(pathResult.getPath().contains("2026-10001"));
-        assertTrue(pathResult.getPath().contains("2026-10009"));
+        assertTrue(pathResult.getPath().contains("20260001-A"));
+        assertTrue(pathResult.getPath().contains("20260009-I"));
     }
 
     @Test
@@ -92,13 +112,13 @@ public class ServiceIntegrationTest {
         NetworkService netService = NetworkService.getInstance();
         netService.reloadGraph();
 
-        // Search for Programming peers from Juan Dela Cruz (2026-10001)
+        // Search for Programming peers from Juan Dela Cruz (20260001-A)
         MatchFilter filter = new MatchFilter().setRequiredSubject("Programming");
-        List<MatchResult> matches = netService.matchStudyGroups("2026-10001", filter);
+        List<MatchResult> matches = netService.matchStudyGroups("20260001-A", filter);
 
         assertFalse(matches.isEmpty());
         // Closest match should be 1st degree peer Maria Santos
-        assertEquals("2026-10002", matches.get(0).getStudent().getStudentId());
+        assertEquals("20260002-B", matches.get(0).getStudent().getStudentId());
         assertEquals(1, matches.get(0).getDegreeOfSeparation());
     }
 
@@ -107,9 +127,9 @@ public class ServiceIntegrationTest {
         NetworkService netService = NetworkService.getInstance();
         netService.reloadGraph();
 
-        // Both Bea (2026-10006) and Joshua (2026-10007) connect to Mark (2026-10003)
-        List<String> mutuals = netService.getMutualConnections("2026-10006", "2026-10007");
-        assertTrue(mutuals.contains("2026-10003"));
+        // Both Bea (20260006-F) and Joshua (20260007-G) connect to Mark (20260003-C)
+        List<String> mutuals = netService.getMutualConnections("20260006-F", "20260007-G");
+        assertTrue(mutuals.contains("20260003-C"));
     }
 
     @Test
@@ -117,8 +137,8 @@ public class ServiceIntegrationTest {
         NetworkService netService = NetworkService.getInstance();
         netService.reloadGraph();
 
-        String s1 = "2026-10001"; // Juan
-        String s7 = "2026-10007"; // Joshua (not directly connected to Juan initially)
+        String s1 = "20260001-A"; // Juan
+        String s7 = "20260007-G"; // Joshua (not directly connected to Juan initially)
 
         // Make sure no direct connection initially
         netService.removeConnection(s1, s7);
@@ -163,18 +183,73 @@ public class ServiceIntegrationTest {
         assertEquals("BSCS 2A", netService.getGraph().getNode(testStudentId).getProfile().getSection());
 
         // 3. Admin adds connection between test student and Juan
-        assertTrue(netService.addConnection(testStudentId, "2026-10001"));
-        assertTrue(netService.hasConnection(testStudentId, "2026-10001"));
+        assertTrue(netService.addConnection(testStudentId, "20260001-A"));
+        assertTrue(netService.hasConnection(testStudentId, "20260001-A"));
 
-        // 4. Admin deletes student
+        // 4. Admin deletes student (kept in archive, restorable)
         assertTrue(netService.adminDeleteStudent(testStudentId));
         assertFalse(netService.getGraph().containsVertex(testStudentId));
-        assertFalse(netService.hasConnection(testStudentId, "2026-10001"));
+        assertFalse(netService.hasConnection(testStudentId, "20260001-A"));
+        assertFalse(netService.isStudentIdInUse(testStudentId));
+        assertTrue(netService.getArchivedStudents().stream()
+                .anyMatch(e -> testStudentId.equals(e.getUser().getStudentId())));
 
         // 5. Admin resets dataset to initial benchmark state
         netService.adminResetDataset();
         assertEquals(10, netService.getGraph().getVertexCount());
         assertEquals(11, netService.getGraph().getEdgeCount());
+    }
+
+    @Test
+    public void testAdminArchiveRestoreAndPurgeWorkflow() throws Exception {
+        NetworkService netService = NetworkService.getInstance();
+
+        String testId = uniqueTestId();
+
+        // 1. Admin creates a student with a profile, then deletes it
+        assertTrue(netService.adminAddStudent(testId, "Archive", null, "Restore", null, "BSIT", "3rd Year", "BSIT 3B"));
+        assertTrue(netService.adminDeleteStudent(testId));
+        assertFalse(netService.isStudentIdInUse(testId));
+        assertFalse(netService.getGraph().containsVertex(testId));
+
+        ArchiveEntry original = netService.getArchivedStudents().stream()
+                .filter(e -> testId.equals(e.getUser().getStudentId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(original);
+        assertNotNull(original.getProfile());
+        assertEquals("Archive Restore", original.getUser().getFullName());
+        assertEquals("BSIT", original.getProfile().getCourse());
+        assertEquals("BSIT 3B", original.getProfile().getSection());
+        assertNotNull(original.getArchivedAt());
+
+        // 2. Restore is refused while a live account occupies the same Student ID
+        assertTrue(netService.adminAddStudent(testId, "Duplicate", null, "Occupant", null, "BSCS", "1st Year", "BSCS 1A"));
+        assertFalse(netService.restoreArchivedStudent(testId, original.getArchivedAt()));
+
+        // 3. Deleting the occupant archives a second snapshot of the same ID
+        assertTrue(netService.adminDeleteStudent(testId));
+        assertEquals(2, netService.getArchivedStudents().stream()
+                .filter(e -> testId.equals(e.getUser().getStudentId()))
+                .count());
+
+        // 4. Restoring by the original archive timestamp brings back the original snapshot
+        assertTrue(netService.restoreArchivedStudent(testId, original.getArchivedAt()));
+        assertTrue(netService.isStudentIdInUse(testId));
+        assertTrue(netService.getGraph().containsVertex(testId));
+        assertEquals("Archive Restore", netService.getGraph().getNode(testId).getFullName());
+        assertEquals("BSIT 3B", netService.getGraph().getNode(testId).getProfile().getSection());
+
+        // 5. The foreign snapshot of the same ID is untouched, purge removes it permanently
+        ArchiveEntry leftover = netService.getArchivedStudents().stream()
+                .filter(e -> testId.equals(e.getUser().getStudentId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(leftover);
+        assertTrue(netService.purgeArchivedStudent(testId, leftover.getArchivedAt()));
+        assertFalse(netService.getArchivedStudents().stream()
+                .anyMatch(e -> testId.equals(e.getUser().getStudentId())));
+        assertTrue(netService.isStudentIdInUse(testId));
     }
 
     // ==================================================
@@ -185,7 +260,7 @@ public class ServiceIntegrationTest {
     public void testRegisterValidationRejectsBadInput() throws Exception {
         AuthService authService = new AuthService();
 
-        // Student ID containing letters and symbols (digits-only rule)
+        // Student ID containing letters, symbols, and spaces (00000000-A rule)
         assertThrows(ValidationException.class, () ->
                 authService.registerStudent("bad id!", "Valid", null, "Name", null, "pass1234", null));
         assertThrows(ValidationException.class, () ->
@@ -222,6 +297,68 @@ public class ServiceIntegrationTest {
                 authService.registerStudent(duplicateId, "Second", null, "User", null, "pass1234", null));
     }
 
+    // ==================================================
+    // STUDENT ID FORMAT (00000000-A) & CASE NORMALIZATION
+    // ==================================================
+
+    @Test
+    public void testStudentIdFormatEnforcementAndNormalization() throws Exception {
+        AuthService authService = new AuthService();
+
+        // 7 digits rejected
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("1234567-A", "Format", null, "Check", null, "pass1234", null));
+        // 9 digits rejected
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("123456789-A", "Format", null, "Check", null, "pass1234", null));
+        // Missing dash rejected
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("12345678A", "Format", null, "Check", null, "pass1234", null));
+        // Two letters rejected
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("12345678-AB", "Format", null, "Check", null, "pass1234", null));
+        // Missing letter rejected
+        assertThrows(ValidationException.class, () ->
+                authService.registerStudent("12345678-", "Format", null, "Check", null, "pass1234", null));
+
+        // Lowercase letter accepted and stored normalized uppercase
+        String lowercaseId = uniqueTestId().toLowerCase();
+        User created = authService.registerStudent(lowercaseId, "Case", null, "Normalizer", null, "pass1234", null);
+        assertEquals(lowercaseId.toUpperCase(), created.getStudentId());
+
+        // Login is case-insensitive: lowercase input finds the uppercase account
+        // (fresh registrations are PENDING, so a hit surfaces as PENDING_VERIFICATION,
+        //  while a wrong ID would be USER_NOT_FOUND)
+        assertEquals(AuthService.AuthStatus.PENDING_VERIFICATION,
+                authService.authenticate(lowercaseId, "pass1234").getStatus());
+        assertEquals(AuthService.AuthStatus.PENDING_VERIFICATION,
+                authService.authenticate(created.getStudentId(), "pass1234").getStatus());
+        assertEquals(AuthService.AuthStatus.USER_NOT_FOUND,
+                authService.authenticate("99999999-Z", "pass1234").getStatus());
+    }
+
+    @Test
+    public void testAdminLoginCredentialsTolerance() {
+        AuthService authService = new AuthService();
+
+        // Exact credentials
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate("admin", "admin123").getStatus());
+        // Capitalized username still resolves to the lowercase seeded admin
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate("Admin", "admin123").getStatus());
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate("ADMIN", "admin123").getStatus());
+        // Clipboard whitespace must not lock the admin out
+        assertEquals(AuthService.AuthStatus.SUCCESS,
+                authService.authenticate("admin ", " admin123").getStatus());
+        // Wrong credentials still fail cleanly
+        assertEquals(AuthService.AuthStatus.INVALID_CREDENTIALS,
+                authService.authenticate("admin", "wrongpass1").getStatus());
+        assertEquals(AuthService.AuthStatus.USER_NOT_FOUND,
+                authService.authenticate("noadmin", "admin123").getStatus());
+    }
+
     @Test
     public void testAdminAddStudentValidation() {
         NetworkService netService = NetworkService.getInstance();
@@ -230,7 +367,7 @@ public class ServiceIntegrationTest {
         assertThrows(ValidationException.class, () ->
                 netService.adminAddStudent(uniqueTestId(), "Section", null, "Check", null, "BSIT", "1st Year", " "));
 
-        // Lettered Student ID rejected by the digits-only rule
+        // Student ID outside the 00000000-A format rejected
         assertThrows(ValidationException.class, () ->
                 netService.adminAddStudent("bad*id", "Section", null, "Check", null, "BSIT", "1st Year", "BSIT 1A"));
     }

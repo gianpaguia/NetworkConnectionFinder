@@ -6,6 +6,7 @@ import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
 import com.networkfinder.service.AuthService;
+import com.networkfinder.service.InputValidator;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -67,7 +68,7 @@ public class LoginView extends StackPane {
         Label idLabel = new Label("Student ID");
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
-        idField.setPromptText("Enter your Student ID (e.g. 2026-10001)");
+        idField.setPromptText("Enter your Student ID (e.g. 20261001-A)");
         idBox.getChildren().addAll(idLabel, idField);
 
         VBox passBox = new VBox(6);
@@ -85,6 +86,14 @@ public class LoginView extends StackPane {
         loginBtn.setOnAction(e -> {
             String id = idField.getText().trim();
             String pass = passValue.getValue();
+
+            if (!id.equalsIgnoreCase("admin") && !InputValidator.isValidStudentId(id)) {
+                errorLabel.setText("Please enter your Student ID in the format 00000000-A "
+                        + "(8 digits, a dash, then one letter), e.g. 20261001-A.");
+                errorLabel.setVisible(true);
+                errorLabel.setManaged(true);
+                return;
+            }
 
             AuthService.LoginResult result = authService.authenticate(id, pass);
             switch (result.getStatus()) {
@@ -126,7 +135,17 @@ public class LoginView extends StackPane {
         Label helperText = new Label("Your Student ID is your username.");
         helperText.getStyleClass().add("helper-text");
 
-        VBox helperBox = new VBox(helperText);
+        Button forgotLink = new Button("Forgot password?");
+        forgotLink.getStyleClass().add("button-link");
+        forgotLink.setOnAction(e -> showForgotPasswordDialog());
+
+        Region helperSpacer = new Region();
+        HBox.setHgrow(helperSpacer, Priority.ALWAYS);
+
+        HBox helperRow = new HBox(8, helperText, helperSpacer, forgotLink);
+        helperRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox helperBox = new VBox(helperRow);
         helperBox.setAlignment(Pos.CENTER_LEFT);
 
         card.getChildren().addAll(cardHeading, errorLabel, idBox, passBox, loginBtn, registerBox, helperBox);
@@ -140,5 +159,24 @@ public class LoginView extends StackPane {
 
         split.getChildren().addAll(heroPanel, formPanel);
         getChildren().add(split);
+    }
+
+    /**
+     * Passwords are hashes, so the app never recovers them; the supported
+     * recovery path is the administrator reset. This dialog walks the student
+     * through it and points at the admin portal.
+     */
+    private void showForgotPasswordDialog() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Forgot Password");
+        alert.setHeaderText("Passwords cannot be recovered from inside the app.");
+        alert.setContentText(
+                "Ask the administrator to reset it for you:\n\n" +
+                "1. Open the Admin Portal (button below on this screen).\n" +
+                "2. The admin opens Student Accounts, finds your Student ID, and clicks Reset PW.\n" +
+                "3. Sign in with the temporary password you are given.\n" +
+                "4. Change it anytime in Settings > Account > Change Password.");
+        UiDialogs.styleDialogPane(alert.getDialogPane());
+        alert.showAndWait();
     }
 }

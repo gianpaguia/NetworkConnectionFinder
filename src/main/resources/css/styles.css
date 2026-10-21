@@ -118,16 +118,16 @@
     -fx-background-color: rgba(18, 18, 22, 0.70);
     -fx-border-color: rgba(255, 255, 255, 0.05);
     -fx-border-width: 0 0 1 0;
-    -fx-padding: 8px 18px;
+    -fx-padding: 12px 24px;
     -fx-alignment: center-left;
 }
 
 .window-back-btn {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-ink;
-    -fx-font-size: 14px;
+    -fx-font-size: 16px;
     -fx-font-weight: 600;
-    -fx-padding: 6px 12px;
+    -fx-padding: 8px 14px;
     -fx-background-radius: 4px;
     -fx-cursor: hand;
 }
@@ -138,14 +138,14 @@
 }
 
 .window-title {
-    -fx-font-size: 13px;
+    -fx-font-size: 20px;
     -fx-font-weight: 600;
     -fx-text-fill: -fx-ink-soft;
 }
 
 /* Fluent Profile Banner (Windows Settings Header) */
 .fluent-profile-hero {
-    -fx-padding: 24px 36px 16px 36px;
+    -fx-padding: 32px 40px 20px 40px;
     -fx-alignment: center-left;
 }
 
@@ -156,25 +156,25 @@
 }
 
 .fluent-avatar-text {
-    -fx-font-size: 22px;
+    -fx-font-size: 28px;
     -fx-font-weight: 700;
     -fx-fill: #FFFFFF;
 }
 
 .fluent-user-name {
-    -fx-font-size: 22px;
+    -fx-font-size: 30px;
     -fx-font-weight: 600;
     -fx-text-fill: #FFFFFF;
 }
 
 .fluent-user-subtitle {
-    -fx-font-size: 12px;
+    -fx-font-size: 13px;
     -fx-font-weight: 400;
     -fx-text-fill: -fx-ink-soft;
 }
 
 .fluent-user-link {
-    -fx-font-size: 12px;
+    -fx-font-size: 13px;
     -fx-font-weight: 500;
     -fx-text-fill: -fx-accent;
     -fx-cursor: hand;
@@ -204,7 +204,9 @@
 }
 
 .fluent-status-icon {
-    -fx-font-size: 20px;
+    -fx-min-width: 20px;
+    -fx-min-height: 20px;
+    -fx-alignment: center-left;
 }
 
 .fluent-status-title {
@@ -280,12 +282,6 @@
     -fx-background-radius: 10px;
     -fx-border-radius: 10px;
     -fx-alignment: center;
-}
-
-.fluent-tile-icon {
-    -fx-font-size: 24px;
-    -fx-alignment: center;
-    -fx-text-alignment: center;
 }
 
 .fluent-tile-title {
@@ -996,4 +992,61 @@
 
 .dialog-pane .button-bar .button:pressed {
     -fx-background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* SVG Vector Icons (Lucide path data rendered by SVGPath) */
+.svg-icon {
+    -fx-fill: transparent;
+    -fx-stroke: -fx-ink-soft;
+    -fx-stroke-width: 2;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.svg-icon-strong {
+    -fx-stroke: -fx-ink;
+}
+
+.svg-icon-primary {
+    -fx-stroke: #0F172A;
+}
+
+.svg-icon-accent {
+    -fx-stroke: -fx-accent;
+}
+
+.svg-icon-success {
+    -fx-stroke: -fx-green;
+}
+
+.svg-icon-warn {
+    -fx-stroke: -fx-amber;
+}
+
+.svg-icon-danger {
+    -fx-stroke: -fx-danger;
+}
+
+.status-dot {
+    -fx-fill: -fx-amber;
+}
+
+.nav-button, .nav-button-active {
+    -fx-graphic-text-gap: 8px;
+}
+
+.nav-button:hover .svg-icon, .nav-button-active .svg-icon {
+    -fx-stroke: -fx-accent;
+}
+
+.nav-button:hover .svg-icon-danger {
+    -fx-stroke: -fx-danger;
+}
+
+.selectable-card, .selectable-card-selected {
+    -fx-graphic-text-gap: 8px;
+}
+
+.button-secondary {
+    -fx-graphic-text-gap: 7px;
 }

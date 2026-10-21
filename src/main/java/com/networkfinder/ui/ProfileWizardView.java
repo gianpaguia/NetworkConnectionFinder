@@ -362,21 +362,20 @@ public class ProfileWizardView extends StackPane {
         habitsGrid.setHgap(12);
         habitsGrid.setVgap(10);
 
-        String[][] habits = {
-                {"📚 Reviewing Lessons", "Reviewing Lessons"},
-                {"💻 Coding Together", "Coding Together"},
-                {"🧠 Solving Problems", "Solving Problems"},
-                {"📝 Exam Review", "Exam Review"},
-                {"🎯 Working on Projects", "Working on Projects"},
-                {"🗣️ Group Discussions", "Group Discussions"},
-                {"📖 Sharing Notes", "Sharing Notes"}
+        String[] habits = {
+                "Reviewing Lessons",
+                "Coding Together",
+                "Solving Problems",
+                "Exam Review",
+                "Working on Projects",
+                "Group Discussions",
+                "Sharing Notes"
         };
 
         int col = 0, row = 0;
-        for (String[] h : habits) {
-            String label = h[0];
-            String val = h[1];
-            Button hBtn = new Button(label);
+        for (String val : habits) {
+            Button hBtn = new Button(val);
+            hBtn.setGraphic(SvgIcons.icon(habitIcon(val), 16, "svg-icon-accent"));
             boolean selected = selectedHabits.contains(val);
             hBtn.getStyleClass().add(selected ? "selectable-card-selected" : "selectable-card");
             hBtn.setPrefWidth(280);
@@ -452,6 +451,19 @@ public class ProfileWizardView extends StackPane {
         navBox.getChildren().addAll(backBtn, spacer, continueBtn);
         box.getChildren().addAll(heading, sub1, habitsGrid, groupSizeBox, navBox);
         stepContentContainer.getChildren().setAll(box);
+    }
+
+    private SvgIcons.Glyph habitIcon(String habit) {
+        switch (habit) {
+            case "Reviewing Lessons": return SvgIcons.Glyph.BOOK_OPEN;
+            case "Coding Together": return SvgIcons.Glyph.CODE;
+            case "Solving Problems": return SvgIcons.Glyph.BRAIN;
+            case "Exam Review": return SvgIcons.Glyph.FILE_TEXT;
+            case "Working on Projects": return SvgIcons.Glyph.FOLDER_KANBAN;
+            case "Group Discussions": return SvgIcons.Glyph.MESSAGE_CIRCLE;
+            case "Sharing Notes": return SvgIcons.Glyph.NOTEBOOK;
+            default: return SvgIcons.Glyph.INFO;
+        }
     }
 
     // ==================================================
