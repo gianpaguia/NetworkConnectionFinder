@@ -17,7 +17,7 @@ public final class InputValidator {
     private static final int FIRST_NAME_MAX_LENGTH = 30;
     private static final int SURNAME_MAX_LENGTH = 40;
     private static final int MAX_SECTION_LENGTH = 30;
-    private static final int MAX_COURSE_LENGTH = 40;
+    private static final int MAX_COURSE_LENGTH = 60;
     private static final int PASSWORD_MIN_LENGTH = 8;
     private static final int MAX_PASSWORD_LENGTH = 72;
 

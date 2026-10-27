@@ -60,6 +60,11 @@ public class ServiceIntegrationTest {
     @Test
     public void testAdminSeededAndAuthenticates() {
         AuthService authService = new AuthService();
+        AuthService.LoginResult resAdmin = authService.authenticate("admin", "admin");
+        assertEquals(AuthService.AuthStatus.SUCCESS, resAdmin.getStatus());
+        assertNotNull(resAdmin.getUser());
+        assertEquals(Role.ADMIN, resAdmin.getUser().getRole());
+
         AuthService.LoginResult res = authService.authenticate("admin", "admin123");
         assertEquals(AuthService.AuthStatus.SUCCESS, res.getStatus());
         assertNotNull(res.getUser());

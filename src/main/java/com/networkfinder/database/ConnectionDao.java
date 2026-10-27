@@ -65,8 +65,8 @@ public class ConnectionDao {
 
     public boolean hasConnection(String u, String v) {
         String sql = """
-            SELECT 1 FROM connections 
-            WHERE (requester_id = ? AND receiver_id = ?) 
+            SELECT 1 FROM connections
+            WHERE (requester_id = ? AND receiver_id = ?)
                OR (requester_id = ? AND receiver_id = ?)
             LIMIT 1;
         """;
@@ -118,8 +118,8 @@ public class ConnectionDao {
 
     public Connection getConnectionBetween(String u, String v) {
         String sql = """
-            SELECT * FROM connections 
-            WHERE (requester_id = ? AND receiver_id = ?) 
+            SELECT * FROM connections
+            WHERE (requester_id = ? AND receiver_id = ?)
                OR (requester_id = ? AND receiver_id = ?)
             LIMIT 1;
         """;

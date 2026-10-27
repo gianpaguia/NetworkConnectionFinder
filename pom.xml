@@ -72,6 +72,11 @@
                 <version>3.13.0</version>
                 <configuration>
                     <release>21</release>
+                    <!-- this-escape excluded: fires on every JavaFX view constructor that calls inherited
+                         methods (setStyle/setTop/etc.); no view class in this project is subclassed. -->
+                    <compilerArgs>
+                        <arg>-Xlint:all,-this-escape</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>

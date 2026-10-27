@@ -37,7 +37,8 @@ public final class SvgIcons {
         FILE_TEXT("M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2zM14 2v5a1 1 0 0 0 1 1h5M10 9H8M16 13H8M16 17H8"),
         FOLDER_KANBAN("M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2zM8 10v4M12 10v2M16 10v6"),
         MESSAGE_CIRCLE("M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"),
-        NOTEBOOK("M2 6h4M2 10h4M2 14h4M2 18h4M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM16 2v20");
+        NOTEBOOK("M2 6h4M2 10h4M2 14h4M2 18h4M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM16 2v20"),
+        BELL("M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0");
 
         private final String pathData;
 
@@ -59,8 +60,7 @@ public final class SvgIcons {
             shape.getStyleClass().add(styleClass);
         }
         double scale = size / DESIGN_SIZE;
-        Group wrapper = new Group(shape);
-        wrapper.getTransforms().add(new Scale(scale, scale));
-        return wrapper;
+        shape.getTransforms().add(new Scale(scale, scale));
+        return new Group(shape);
     }
 }

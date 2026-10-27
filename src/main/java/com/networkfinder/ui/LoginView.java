@@ -1,7 +1,6 @@
 package com.networkfinder.ui;
 
 import com.networkfinder.database.ProfileDao;
-import com.networkfinder.database.UserDao;
 import com.networkfinder.model.Role;
 import com.networkfinder.model.StudentProfile;
 import com.networkfinder.model.User;
@@ -55,7 +54,7 @@ public class LoginView extends StackPane {
         VBox card = new VBox(16);
         card.getStyleClass().add("card");
 
-        Label cardHeading = new Label("Student Sign In");
+        Label cardHeading = new Label("Sign In");
         cardHeading.getStyleClass().add("card-title");
 
         Label errorLabel = new Label();
@@ -68,7 +67,7 @@ public class LoginView extends StackPane {
         Label idLabel = new Label("Student ID");
         idLabel.getStyleClass().add("field-label");
         TextField idField = new TextField();
-        idField.setPromptText("Enter your Student ID (e.g. 20261001-A)");
+        idField.setPromptText("Enter your Student ID");
         idBox.getChildren().addAll(idLabel, idField);
 
         VBox passBox = new VBox(6);
@@ -100,9 +99,7 @@ public class LoginView extends StackPane {
                 case SUCCESS -> {
                     User user = result.getUser();
                     if (user.getRole() == Role.ADMIN) {
-                        errorLabel.setText("Administrator accounts must sign in through the Admin Portal.");
-                        errorLabel.setVisible(true);
-                        errorLabel.setManaged(true);
+                        ScreenNavigator.showAdminDashboard();
                     } else {
                         StudentProfile profile = profileDao.getProfile(user.getStudentId());
                         if (user.isProfileCompleted() && profile != null) {
@@ -150,11 +147,8 @@ public class LoginView extends StackPane {
 
         card.getChildren().addAll(cardHeading, errorLabel, idBox, passBox, loginBtn, registerBox, helperBox);
 
-        Button adminBtn = new Button("Admin Portal");
-        adminBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: -fx-ink-soft; -fx-font-size: 14px; -fx-font-weight: 500; -fx-cursor: hand;");
-        adminBtn.setOnAction(e -> ScreenNavigator.showAdminLogin());
 
-        container.getChildren().addAll(headerBox, card, adminBtn);
+        container.getChildren().addAll(headerBox, card);
         formPanel.getChildren().add(container);
 
         split.getChildren().addAll(heroPanel, formPanel);

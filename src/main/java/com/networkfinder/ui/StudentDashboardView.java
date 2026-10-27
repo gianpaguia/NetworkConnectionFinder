@@ -1,5 +1,6 @@
 package com.networkfinder.ui;
 
+import com.networkfinder.database.DatabaseManager;
 import com.networkfinder.database.ProfileDao;
 import com.networkfinder.dsa.*;
 import com.networkfinder.model.StudentProfile;
@@ -11,22 +12,31 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
+import javafx.util.StringConverter;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class StudentDashboardView extends BorderPane {
     private final User currentUser;
     private final NetworkService networkService = NetworkService.getInstance();
     private final ProfileDao profileDao = new ProfileDao();
+    private final Map<String, Integer> matcherPageState = new HashMap<>();
 
     private final StackPane contentArea = new StackPane();
     private Button windowBackBtn;
     private Label windowTitleLbl;
+    private Label brandTitleLbl;
     private List<VBox> allTiles = new ArrayList<>();
 
     public StudentDashboardView(User user) {
@@ -48,23 +58,31 @@ public class StudentDashboardView extends BorderPane {
         bar.getStyleClass().add("window-top-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
 
-        windowBackBtn = new Button("←  Settings");
+        windowBackBtn = new Button("←  Return");
         windowBackBtn.getStyleClass().add("window-back-btn");
         windowBackBtn.setOnAction(e -> showHomeScreen());
         windowBackBtn.setVisible(false);
 
-        windowTitleLbl = new Label("Settings");
+        windowTitleLbl = new Label();
         windowTitleLbl.getStyleClass().add("window-title");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        brandTitleLbl = new Label("Network Connection Finder");
+        brandTitleLbl.getStyleClass().add("window-brand");
+
+        HBox leftBox = new HBox(12, windowBackBtn, brandTitleLbl, windowTitleLbl);
+        leftBox.setAlignment(Pos.CENTER_LEFT);
+        leftBox.setMinWidth(240);
+
+        Region leftSpacer = new Region();
+        HBox.setHgrow(leftSpacer, Priority.ALWAYS);
+
+        Button notifBtn = buildStudentNotificationButton();
 
         Button settingsBtn = new Button("Settings · Account");
         settingsBtn.getStyleClass().add("button-secondary");
         settingsBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.SETTINGS, 15, "svg-icon-strong"));
         settingsBtn.setOnAction(e -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > Account");
+            setBreadcrumb("Settings > Account");
             showSettingsPanel();
         });
 
@@ -73,16 +91,129 @@ public class StudentDashboardView extends BorderPane {
         logoutBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.LOG_OUT, 15, "svg-icon-strong"));
         logoutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
 
-        bar.getChildren().addAll(windowBackBtn, windowTitleLbl, spacer, settingsBtn, logoutBtn);
+        HBox rightBox = new HBox(10, notifBtn, settingsBtn, logoutBtn);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+        rightBox.setMinWidth(240);
+
+        bar.getChildren().addAll(leftBox, leftSpacer, rightBox);
         return bar;
+    }
+
+    private void setBreadcrumb(String title) {
+        boolean atHome = title == null;
+        windowBackBtn.setVisible(!atHome);
+        windowBackBtn.setManaged(!atHome);
+        brandTitleLbl.setVisible(atHome);
+        brandTitleLbl.setManaged(atHome);
+        windowTitleLbl.setVisible(!atHome);
+        windowTitleLbl.setManaged(!atHome);
+        if (!atHome) {
+            windowTitleLbl.setText(title);
+        }
+    }
+
+    private Button buildStudentNotificationButton() {
+        Button btn = new Button();
+        btn.getStyleClass().add("notification-bell-btn");
+
+        List<com.networkfinder.model.Connection> incoming = networkService.getIncomingRequests(currentUser.getStudentId());
+        int count = incoming.size();
+
+        HBox content = new HBox(6);
+        content.setAlignment(Pos.CENTER);
+
+        Node bell = SvgIcons.icon(SvgIcons.Glyph.BELL, 15, count > 0 ? "svg-icon-warn" : "svg-icon");
+        content.getChildren().add(bell);
+
+        if (count > 0) {
+            Label badge = new Label(String.valueOf(count));
+            badge.getStyleClass().add("notification-badge");
+            content.getChildren().add(badge);
+        }
+
+        btn.setGraphic(content);
+        btn.setTooltip(new Tooltip(count + " pending incoming invitation(s)"));
+        btn.setOnAction(e -> showStudentNotificationsModal());
+        return btn;
+    }
+
+    private void showStudentNotificationsModal() {
+        List<com.networkfinder.model.Connection> incoming = networkService.getIncomingRequests(currentUser.getStudentId());
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Notifications");
+        dialog.setHeaderText("Connection Invitations & Network Activity");
+        UiDialogs.styleDialogPane(dialog.getDialogPane());
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        VBox box = new VBox(12);
+        box.setPrefWidth(420);
+        box.setPadding(new Insets(10, 0, 10, 0));
+
+        if (incoming.isEmpty()) {
+            VBox emptyCard = new VBox(8);
+            emptyCard.setAlignment(Pos.CENTER);
+            emptyCard.setPadding(new Insets(20));
+            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 28, "svg-icon-success");
+            Label emptyLbl = new Label("No new notifications");
+            emptyLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: 700; -fx-text-fill: -fx-ink;");
+            Label subLbl = new Label("You have no pending incoming connection requests.");
+            subLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+            emptyCard.getChildren().addAll(checkIcon, emptyLbl, subLbl);
+            box.getChildren().add(emptyCard);
+        } else {
+            Label header = new Label(incoming.size() + " Incoming Connection Request" + (incoming.size() > 1 ? "s" : ""));
+            header.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-accent;");
+            box.getChildren().add(header);
+
+            for (com.networkfinder.model.Connection c : incoming) {
+                StudentNode sNode = networkService.getGraph().getNode(c.getRequesterId());
+                HBox item = new HBox(12);
+                item.getStyleClass().add("notification-item");
+                item.setAlignment(Pos.CENTER_LEFT);
+
+                Node icon = SvgIcons.icon(SvgIcons.Glyph.USER, 16, "svg-icon-accent");
+                VBox textCol = new VBox(2);
+                Label name = new Label(sNode != null ? sNode.getFullName() : c.getRequesterId());
+                name.setStyle("-fx-font-weight: 600; -fx-font-size: 13px; -fx-text-fill: -fx-ink;");
+                Label sub = new Label("Wants to connect on campus");
+                sub.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft;");
+                textCol.getChildren().addAll(name, sub);
+                HBox.setHgrow(textCol, Priority.ALWAYS);
+
+                Button acceptBtn = new Button("Accept");
+                acceptBtn.getStyleClass().add("button-primary");
+                acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                acceptBtn.setOnAction(ev -> {
+                    networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    dialog.close();
+                    setTop(buildTopWindowBar());
+                    showHomeScreen();
+                });
+
+                Button declineBtn = new Button("Decline");
+                declineBtn.getStyleClass().add("button-secondary");
+                declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-text-fill: -fx-danger;");
+                declineBtn.setOnAction(ev -> {
+                    networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
+                    dialog.close();
+                    setTop(buildTopWindowBar());
+                    showHomeScreen();
+                });
+
+                item.getChildren().addAll(icon, textCol, acceptBtn, declineBtn);
+                box.getChildren().add(item);
+            }
+        }
+
+        dialog.getDialogPane().setContent(box);
+        dialog.showAndWait();
     }
 
     // ==================================================
     // 0. HOME SCREEN (WINDOWS SETTINGS HUB)
     // ==================================================
     private void showHomeScreen() {
-        windowBackBtn.setVisible(false);
-        windowTitleLbl.setText("Settings");
+        setBreadcrumb(null);
 
         VBox homeBox = new VBox(0);
         homeBox.setAlignment(Pos.TOP_CENTER);
@@ -94,12 +225,7 @@ public class StudentDashboardView extends BorderPane {
         heroBanner.setAlignment(Pos.CENTER_LEFT);
 
         // Circular Avatar
-        StackPane avatarPane = new StackPane();
-        Circle avatarCircle = new Circle(42);
-        avatarCircle.getStyleClass().add("fluent-avatar");
-        Text initials = new Text(getInitials(currentUser.getFullName()));
-        initials.getStyleClass().add("fluent-avatar-text");
-        avatarPane.getChildren().addAll(avatarCircle, initials);
+        StackPane avatarPane = buildClickableAvatar(42);
 
         // User Meta
         VBox metaBox = new VBox(2);
@@ -168,26 +294,22 @@ public class StudentDashboardView extends BorderPane {
         allTiles.clear();
 
         VBox tileMatcher = createFluentTile(SvgIcons.icon(SvgIcons.Glyph.TARGET, 26, "svg-icon-accent"), "Study Group Matcher", "Level-order BFS, subjects, peers", () -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > Study Group Matcher");
+            setBreadcrumb("Settings > Study Group Matcher");
             showStudyGroupMatcherScreen();
         });
 
         VBox tilePathfinder = createFluentTile(SvgIcons.icon(SvgIcons.Glyph.ROUTE, 26, "svg-icon-accent"), "Pathfinder (BFS)", "Degrees of separation, shortest chain", () -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > Pathfinder (BFS)");
+            setBreadcrumb("Settings > Pathfinder (BFS)");
             showPathfinderScreen();
         });
 
         VBox tileConnections = createFluentTile(SvgIcons.icon(SvgIcons.Glyph.USERS, 26, "svg-icon-accent"), "My Connections", "Direct peers, mutual friends, requests", () -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > My Connections");
+            setBreadcrumb("Settings > My Connections");
             showConnectionsScreen();
         });
 
         VBox tileAnalytics = createFluentTile(SvgIcons.icon(SvgIcons.Glyph.SHARE_2, 26, "svg-icon-accent"), "Network Graph & Hubs", "Degree centrality, hubs, constellation", () -> {
-            windowBackBtn.setVisible(true);
-            windowTitleLbl.setText("Settings > Network Graph & Hubs");
+            setBreadcrumb("Settings > Network Graph & Hubs");
             showAnalyticsScreen();
         });
 
@@ -195,11 +317,7 @@ public class StudentDashboardView extends BorderPane {
             ScreenNavigator.showProfileWizard(currentUser);
         });
 
-        VBox tileVerification = createFluentTile(SvgIcons.icon(SvgIcons.Glyph.SHIELD_CHECK, 26, "svg-icon-accent"), "Account & Verification", "Student credentials, security badge", () -> {
-            showAccountVerificationModal();
-        });
-
-        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile, tileVerification));
+        allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile));
         layoutTilesOnGrid(tileGrid, allTiles);
 
         // Live search filter on tiles
@@ -291,27 +409,11 @@ public class StudentDashboardView extends BorderPane {
         return ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
-    private void showAccountVerificationModal() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Account & Verification");
-        alert.setHeaderText("Student Verification Status");
-        alert.setContentText(
-                "Student ID: " + currentUser.getStudentId() + "\n" +
-                "Full Name: " + currentUser.getFullName() + "\n" +
-                "Verification: " + currentUser.getVerificationStatus() + "\n" +
-                "Role: " + currentUser.getRole() + "\n\n" +
-                "Your account is verified and participating in the campus social network graph."
-        );
-        UiDialogs.styleDialogPane(alert.getDialogPane());
-        alert.showAndWait();
-    }
-
     // ==================================================
     // SETTINGS · ACCOUNT (change password, session)
     // ==================================================
     private void showSettingsPanel() {
-        windowBackBtn.setVisible(true);
-        windowTitleLbl.setText("Settings > Account");
+        setBreadcrumb("Settings > Account");
 
         VBox mainBox = new VBox(16);
         mainBox.setPadding(new Insets(20, 36, 30, 36));
@@ -329,12 +431,7 @@ public class StudentDashboardView extends BorderPane {
         HBox identityRow = new HBox(14);
         identityRow.setAlignment(Pos.CENTER_LEFT);
 
-        StackPane avatarPane = new StackPane();
-        Circle avatarCircle = new Circle(24);
-        avatarCircle.getStyleClass().add("fluent-avatar");
-        Text initials = new Text(getInitials(currentUser.getFullName()));
-        initials.getStyleClass().add("fluent-avatar-text");
-        avatarPane.getChildren().addAll(avatarCircle, initials);
+        StackPane avatarPane = buildClickableAvatar(24);
 
         VBox identityMeta = new VBox(2);
         Label nameLbl = new Label(currentUser.getFullName());
@@ -345,8 +442,7 @@ public class StudentDashboardView extends BorderPane {
 
         Region identitySpacer = new Region();
         HBox.setHgrow(identitySpacer, Priority.ALWAYS);
-        Label statusBadge = new Label("APPROVED");
-        statusBadge.getStyleClass().add("badge-approved");
+        Label statusBadge = createVerificationBadge();
 
         identityRow.getChildren().addAll(avatarPane, identityMeta, identitySpacer, statusBadge);
 
@@ -356,7 +452,50 @@ public class StudentDashboardView extends BorderPane {
 
         accountCard.getChildren().addAll(identityRow, memberSince);
 
-        // 2. Change password card
+        // 2. Verification card
+        VBox verificationCard = new VBox(10);
+        verificationCard.getStyleClass().add("card");
+        verificationCard.setPadding(new Insets(18, 22, 16, 22));
+
+        Label verifTitle = new Label("Account Verification");
+        verifTitle.getStyleClass().add("card-title");
+        Label verifDesc = new Label("Your student credentials and security badge.");
+        verifDesc.getStyleClass().add("screen-subtitle");
+
+        GridPane verifGrid = new GridPane(18, 8);
+        String[] verifKeys = {"Student ID", "Full Name", "Role"};
+        String[] verifValues = {
+                currentUser.getStudentId(),
+                currentUser.getFullName(),
+                currentUser.getRole() == null ? null : currentUser.getRole().toString()
+        };
+        for (int i = 0; i < verifKeys.length; i++) {
+            Label key = new Label(verifKeys[i]);
+            key.getStyleClass().add("helper-text");
+            Label val = new Label(verifValues[i] == null || verifValues[i].isBlank() ? "-" : verifValues[i]);
+            val.setStyle("-fx-text-fill: -fx-ink; -fx-font-weight: 600;");
+            verifGrid.add(key, 0, i);
+            verifGrid.add(val, 1, i);
+        }
+        Label verifKey = new Label("Verification");
+        verifKey.getStyleClass().add("helper-text");
+        verifGrid.add(verifKey, 0, 3);
+        verifGrid.add(createVerificationBadge(), 1, 3);
+
+        Label verifNote = new Label();
+        verifNote.getStyleClass().add("helper-text");
+        verifNote.setWrapText(true);
+        if (currentUser.getVerificationStatus() == com.networkfinder.model.VerificationStatus.APPROVED) {
+            verifNote.setText("Your account is verified and participating in the campus social network graph.");
+        } else if (currentUser.getVerificationStatus() == com.networkfinder.model.VerificationStatus.PENDING) {
+            verifNote.setText("Your account is awaiting admin verification.");
+        } else {
+            verifNote.setText("Your account is not verified. Please contact the administrator.");
+        }
+
+        verificationCard.getChildren().addAll(verifTitle, verifDesc, verifGrid, verifNote);
+
+        // 3. Change password card
         VBox passwordCard = new VBox(14);
         passwordCard.getStyleClass().add("card");
         passwordCard.setPadding(new Insets(18, 22, 20, 22));
@@ -447,7 +586,7 @@ public class StudentDashboardView extends BorderPane {
 
         passwordCard.getChildren().addAll(pwTitle, pwHint, errorLabel, currentBox, newBox, confirmBox, saveBtn, successLabel);
 
-        // 3. Session card
+        // 4. Session card
         VBox sessionCard = new VBox(12);
         sessionCard.getStyleClass().add("card");
         sessionCard.setPadding(new Insets(18, 22, 20, 22));
@@ -463,8 +602,136 @@ public class StudentDashboardView extends BorderPane {
 
         sessionCard.getChildren().addAll(sessionTitle, sessionDesc, signOutBtn);
 
-        mainBox.getChildren().addAll(accountCard, passwordCard, sessionCard);
+        mainBox.getChildren().addAll(accountCard, verificationCard, passwordCard, sessionCard);
         contentArea.getChildren().setAll(mainBox);
+    }
+
+    private Label createVerificationBadge() {
+        Label badge = new Label(currentUser.getVerificationStatus() == null
+                ? "UNKNOWN" : currentUser.getVerificationStatus().name());
+        if (currentUser.getVerificationStatus() == com.networkfinder.model.VerificationStatus.APPROVED) {
+            badge.getStyleClass().add("badge-approved");
+        } else if (currentUser.getVerificationStatus() == com.networkfinder.model.VerificationStatus.PENDING) {
+            badge.getStyleClass().add("badge-pending");
+        } else {
+            badge.setStyle("-fx-padding: 3 10; -fx-background-radius: 999; -fx-font-size: 11px; "
+                    + "-fx-font-weight: 700; -fx-text-fill: -fx-danger; -fx-background-color: rgba(239, 68, 68, 0.16);");
+        }
+        return badge;
+    }
+
+    private StackPane buildClickableAvatar(double radius) {
+        StackPane pane = new StackPane();
+        pane.setMaxSize(radius * 2, radius * 2);
+
+        File photo = avatarFile();
+        boolean photoLoaded = false;
+        if (photo != null) {
+            Image img = new Image(photo.toURI().toString(), radius * 2, radius * 2, true, true);
+            if (!img.isError()) {
+                ImageView view = new ImageView(img);
+                view.setFitWidth(radius * 2);
+                view.setFitHeight(radius * 2);
+                view.setSmooth(true);
+                view.setClip(new Circle(radius, radius, radius));
+                Circle ring = new Circle(radius);
+                ring.setFill(Color.TRANSPARENT);
+                ring.setStroke(Color.color(1.0, 1.0, 1.0, 0.25));
+                ring.setStrokeWidth(2);
+                pane.getChildren().addAll(view, ring);
+                photoLoaded = true;
+            }
+        }
+        if (!photoLoaded) {
+            Circle circle = new Circle(radius);
+            circle.getStyleClass().add("fluent-avatar");
+            Text initials = new Text(getInitials(currentUser.getFullName()));
+            initials.getStyleClass().add("fluent-avatar-text");
+            if (radius < 30) {
+                initials.setStyle("-fx-font-size: 14px;");
+            }
+            pane.getChildren().addAll(circle, initials);
+        }
+
+        StackPane badge = new StackPane();
+        badge.getStyleClass().add("fluent-avatar-badge");
+        int badgeIcon = radius >= 36 ? 10 : 8;
+        badge.getChildren().add(SvgIcons.icon(SvgIcons.Glyph.CAMERA, badgeIcon, "svg-icon-strong"));
+        badge.setPrefSize(badgeIcon + 10, badgeIcon + 10);
+        badge.setMaxSize(badgeIcon + 10, badgeIcon + 10);
+        StackPane.setAlignment(badge, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(badge, new Insets(0, 3, 3, 0));
+        pane.getChildren().add(badge);
+
+        pane.getStyleClass().add("fluent-avatar-clickable");
+        pane.setCursor(javafx.scene.Cursor.HAND);
+        Tooltip.install(pane, new Tooltip("Click to add a profile photo (optional)"));
+        pane.setOnMouseClicked(e -> chooseAvatarPhoto());
+        return pane;
+    }
+
+    private void chooseAvatarPhoto() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select Profile Photo");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+        File file = chooser.showOpenDialog(ScreenNavigator.getPrimaryStage());
+        if (file == null) return;
+
+        String error = AuthService.validateIdCardImage(file);
+        if (error != null) {
+            UiDialogs.showError(error);
+            return;
+        }
+
+        String name = file.getName().toLowerCase();
+        String ext = name.endsWith(".png") ? "png" : (name.endsWith(".jpeg") ? "jpeg" : "jpg");
+        Path target = Path.of(DatabaseManager.getUploadsDir(), "avatars",
+                currentUser.getStudentId() + "." + ext);
+        try {
+            Files.createDirectories(target.getParent());
+            clearAvatarFiles();
+            Files.copy(file.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
+            showHomeScreen();
+        } catch (Exception ex) {
+            UiDialogs.showError("Could not save the photo. Please choose a different image and try again.");
+        }
+    }
+
+    private File avatarFile() {
+        File dir = new File(DatabaseManager.getUploadsDir(), "avatars");
+        File[] matches = dir.listFiles((d, name) ->
+                name.startsWith(currentUser.getStudentId() + ".")
+                        && (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")));
+        return (matches != null && matches.length > 0) ? matches[0] : null;
+    }
+
+    private void clearAvatarFiles() {
+        File dir = new File(DatabaseManager.getUploadsDir(), "avatars");
+        File[] existing = dir.listFiles((d, name) -> name.startsWith(currentUser.getStudentId() + "."));
+        if (existing != null) {
+            for (File f : existing) {
+                f.delete();
+            }
+        }
+    }
+
+    private StringConverter<StudentNode> studentNodeConverter() {
+        return new StringConverter<>() {
+            @Override
+            public String toString(StudentNode node) {
+                if (node == null) return null;
+                String section = node.getProfile() != null && node.getProfile().getSection() != null
+                        ? node.getProfile().getSection() : "";
+                return node.getFullName() + " [" + node.getStudentId() + "]"
+                        + (section.isBlank() ? "" : "  •  " + section);
+            }
+
+            @Override
+            public StudentNode fromString(String string) {
+                return null;
+            }
+        };
     }
 
     private void setFormError(Label errorLabel, String message) {
@@ -491,8 +758,7 @@ public class StudentDashboardView extends BorderPane {
     // 1. QUERY 1 — STUDY GROUP MATCHER (Level-Order BFS)
     // ==================================================
     private void showStudyGroupMatcherScreen() {
-        windowBackBtn.setVisible(true);
-        windowTitleLbl.setText("Settings > Study Group Matcher");
+        setBreadcrumb("Settings > Study Group Matcher");
 
         VBox mainBox = new VBox(16);
         mainBox.setPadding(new Insets(20, 36, 30, 36));
@@ -503,10 +769,15 @@ public class StudentDashboardView extends BorderPane {
         );
 
         // Filter Bar Card
-        HBox filterCard = new HBox(14);
+        HBox filterCard = new HBox(12);
         filterCard.getStyleClass().add("card");
         filterCard.setAlignment(Pos.CENTER_LEFT);
         filterCard.setPadding(new Insets(14, 18, 14, 18));
+
+        TextField nameSearchField = new TextField();
+        nameSearchField.setPromptText("Filter peers by name or ID...");
+        nameSearchField.getStyleClass().add("realtime-search-field");
+        HBox.setHgrow(nameSearchField, Priority.ALWAYS);
 
         ComboBox<String> subjectFilter = new ComboBox<>();
         subjectFilter.setPromptText("Filter by Subject");
@@ -514,7 +785,7 @@ public class StudentDashboardView extends BorderPane {
                 "Networking", "Web Development", "Mobile Development", "Mathematics", "Cybersecurity", "Software Engineering");
         subjectFilter.setValue("All Subjects");
 
-        CheckBox sameSectionCheck = new CheckBox("Same Section Only");
+        CheckBox sameSectionCheck = new CheckBox("Same Section");
         sameSectionCheck.setStyle("-fx-text-fill: -fx-ink; -fx-font-weight: 500;");
 
         ComboBox<String> groupSizeFilter = new ComboBox<>();
@@ -525,6 +796,7 @@ public class StudentDashboardView extends BorderPane {
         searchBtn.getStyleClass().add("button-primary");
 
         filterCard.getChildren().addAll(
+                nameSearchField,
                 new Label("Filters:"),
                 subjectFilter,
                 sameSectionCheck,
@@ -534,6 +806,7 @@ public class StudentDashboardView extends BorderPane {
 
         VBox resultsBox = new VBox(14);
 
+        Runnable[] searchRef = new Runnable[1];
         Runnable executeSearch = () -> {
             resultsBox.getChildren().clear();
 
@@ -550,6 +823,18 @@ public class StudentDashboardView extends BorderPane {
 
             List<MatchResult> networkMatches = networkService.matchStudyGroups(currentUser.getStudentId(), filter);
             List<MatchResult> campusMatches = networkService.matchCampusPeers(currentUser.getStudentId(), filter);
+
+            String nameQuery = (nameSearchField.getText() == null) ? "" : nameSearchField.getText().trim().toLowerCase();
+            if (!nameQuery.isEmpty()) {
+                networkMatches = networkMatches.stream()
+                        .filter(m -> (m.getStudent().getFullName() != null && m.getStudent().getFullName().toLowerCase().contains(nameQuery))
+                                || (m.getStudent().getStudentId() != null && m.getStudent().getStudentId().toLowerCase().contains(nameQuery)))
+                        .toList();
+                campusMatches = campusMatches.stream()
+                        .filter(m -> (m.getStudent().getFullName() != null && m.getStudent().getFullName().toLowerCase().contains(nameQuery))
+                                || (m.getStudent().getStudentId() != null && m.getStudent().getStudentId().toLowerCase().contains(nameQuery)))
+                        .toList();
+            }
 
             if (networkMatches.isEmpty() && campusMatches.isEmpty()) {
                 VBox empty = new VBox(10);
@@ -577,9 +862,11 @@ public class StudentDashboardView extends BorderPane {
                     tierHeader.getStyleClass().add("badge-degree");
                     tierHeader.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                     resultsBox.getChildren().add(tierHeader);
+                    List<Node> tierCards = new ArrayList<>();
                     for (MatchResult m : tier.getValue()) {
-                        resultsBox.getChildren().add(createMatchCard(m));
+                        tierCards.add(createMatchCard(m));
                     }
+                    addPagedMatchCards(resultsBox, "tier:" + tier.getKey(), tierCards, 3, searchRef[0]);
                 }
             } else {
                 VBox infoBox = new VBox(6);
@@ -597,12 +884,19 @@ public class StudentDashboardView extends BorderPane {
                 Label campusCountLabel = new Label("Campus Peer Recommendations (" + campusMatches.size() + " potential partners by profile match):");
                 campusCountLabel.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink; -fx-font-size: 13px; -fx-padding: 10 0 0 0;");
                 resultsBox.getChildren().add(campusCountLabel);
+                List<Node> campusCards = new ArrayList<>();
                 for (MatchResult m : campusMatches) {
-                    resultsBox.getChildren().add(createMatchCard(m));
+                    campusCards.add(createMatchCard(m));
                 }
+                addPagedMatchCards(resultsBox, "campus", campusCards, 3, searchRef[0]);
             }
         };
+        searchRef[0] = executeSearch;
 
+        nameSearchField.textProperty().addListener((obs, oldVal, newVal) -> executeSearch.run());
+        subjectFilter.setOnAction(e -> executeSearch.run());
+        sameSectionCheck.setOnAction(e -> executeSearch.run());
+        groupSizeFilter.setOnAction(e -> executeSearch.run());
         searchBtn.setOnAction(e -> executeSearch.run());
         executeSearch.run();
 
@@ -711,12 +1005,50 @@ public class StudentDashboardView extends BorderPane {
         return card;
     }
 
+    private void addPagedMatchCards(VBox container, String stateKey, List<Node> cards, int pageSize, Runnable refresh) {
+        int totalPages = Math.max(1, (int) Math.ceil((double) cards.size() / pageSize));
+        int page = Math.max(1, Math.min(matcherPageState.getOrDefault(stateKey, 1), totalPages));
+        matcherPageState.put(stateKey, page);
+
+        int from = (page - 1) * pageSize;
+        int to = Math.min(from + pageSize, cards.size());
+        if (from < to) {
+            container.getChildren().addAll(cards.subList(from, to));
+        }
+
+        if (totalPages > 1) {
+            HBox bar = new HBox(12);
+            bar.getStyleClass().add("pagination-container");
+            bar.setAlignment(Pos.CENTER);
+
+            Button prevBtn = new Button("← Previous");
+            prevBtn.getStyleClass().add("pagination-btn");
+            Label pageInfo = new Label("Page " + page + " of " + totalPages + " (" + cards.size() + " total)");
+            pageInfo.getStyleClass().add("pagination-info");
+            Button nextBtn = new Button("Next →");
+            nextBtn.getStyleClass().add("pagination-btn");
+
+            prevBtn.setDisable(page <= 1);
+            nextBtn.setDisable(page >= totalPages);
+            prevBtn.setOnAction(e -> {
+                matcherPageState.put(stateKey, page - 1);
+                refresh.run();
+            });
+            nextBtn.setOnAction(e -> {
+                matcherPageState.put(stateKey, page + 1);
+                refresh.run();
+            });
+
+            bar.getChildren().addAll(prevBtn, pageInfo, nextBtn);
+            container.getChildren().add(bar);
+        }
+    }
+
     // ==================================================
     // 2. QUERY 2 — PATHFINDER (Shortest Path BFS)
     // ==================================================
     private void showPathfinderScreen() {
-        windowBackBtn.setVisible(true);
-        windowTitleLbl.setText("Settings > Pathfinder (BFS)");
+        setBreadcrumb("Settings > Pathfinder (BFS)");
 
         VBox mainBox = new VBox(18);
         mainBox.setPadding(new Insets(20, 36, 30, 36));
@@ -731,7 +1063,7 @@ public class StudentDashboardView extends BorderPane {
         selectorCard.getStyleClass().add("card");
 
         HBox pickers = new HBox(20);
-        pickers.setAlignment(Pos.CENTER_LEFT);
+        pickers.setAlignment(Pos.BOTTOM_LEFT);
 
         // Source
         VBox srcBox = new VBox(6);
@@ -742,6 +1074,9 @@ public class StudentDashboardView extends BorderPane {
         StudentNode currentN = networkService.getGraph().getNode(currentUser.getStudentId());
         if (currentN != null) srcCombo.setValue(currentN);
         srcCombo.setMinWidth(260);
+        srcCombo.setMaxWidth(Double.MAX_VALUE);
+        srcBox.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(srcBox, Priority.ALWAYS);
         srcBox.getChildren().addAll(srcLabel, srcCombo);
 
         // Target
@@ -757,6 +1092,9 @@ public class StudentDashboardView extends BorderPane {
             }
         }
         tgtCombo.setMinWidth(260);
+        tgtCombo.setMaxWidth(Double.MAX_VALUE);
+        tgtBox.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(tgtBox, Priority.ALWAYS);
         tgtBox.getChildren().addAll(tgtLabel, tgtCombo);
 
         Button runBfsBtn = new Button("Run BFS Pathfinder");
@@ -826,11 +1164,14 @@ public class StudentDashboardView extends BorderPane {
         }
 
         HBox metrics = new HBox(14);
-        metrics.getChildren().addAll(
-                createMetricPill("Degrees of Separation", String.valueOf(result.getDegreesOfSeparation()), "-fx-accent"),
-                createMetricPill("Path Length (Hops)", String.valueOf(result.getPath().size() - 1), "-fx-green"),
-                createMetricPill("Nodes Explored (BFS)", String.valueOf(result.getNodesExplored()), "-fx-ink-soft")
-        );
+        VBox pillSep = createMetricPill("Degrees of Separation", String.valueOf(result.getDegreesOfSeparation()), "-fx-accent");
+        VBox pillHops = createMetricPill("Path Length (Hops)", String.valueOf(result.getPath().size() - 1), "-fx-green");
+        VBox pillExplored = createMetricPill("Nodes Explored (BFS)", String.valueOf(result.getNodesExplored()), "-fx-ink-soft");
+        for (VBox pill : new VBox[]{pillSep, pillHops, pillExplored}) {
+            HBox.setHgrow(pill, Priority.ALWAYS);
+            pill.setMaxWidth(Double.MAX_VALUE);
+        }
+        metrics.getChildren().addAll(pillSep, pillHops, pillExplored);
 
         VBox chainBox = new VBox(8);
         Label chainTitle = new Label("Shortest Introduction Chain:");
@@ -884,8 +1225,7 @@ public class StudentDashboardView extends BorderPane {
     // 3. QUERY 3 — MY CONNECTIONS & MUTUAL CONNECTIONS
     // ==================================================
     private void showConnectionsScreen() {
-        windowBackBtn.setVisible(true);
-        windowTitleLbl.setText("Settings > My Connections");
+        setBreadcrumb("Settings > My Connections");
 
         VBox mainBox = new VBox(18);
         mainBox.setPadding(new Insets(20, 36, 30, 36));
@@ -1027,8 +1367,11 @@ public class StudentDashboardView extends BorderPane {
 
         ComboBox<StudentNode> classmatePicker = new ComboBox<>();
         classmatePicker.getItems().addAll(connectable);
+        classmatePicker.setConverter(studentNodeConverter());
         classmatePicker.setPromptText(connectable.isEmpty() ? "No new classmates available" : "Select classmate...");
         classmatePicker.setMinWidth(320);
+        classmatePicker.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(classmatePicker, Priority.ALWAYS);
         classmatePicker.setDisable(connectable.isEmpty());
 
         Button sendReqBtn = new Button("+ Send Request");
@@ -1047,7 +1390,71 @@ public class StudentDashboardView extends BorderPane {
         });
 
         connectRow.getChildren().addAll(classmatePicker, sendReqBtn);
-        connectCard.getChildren().addAll(connectTitle, connectDesc, connectRow);
+
+        Separator mutualSeparator = new Separator();
+
+        Label mTitle = new Label("Mutual Connections Finder");
+        mTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: 700; -fx-text-fill: -fx-ink;");
+
+        Label mDesc = new Label("Pick any student on campus, then click Find Mutuals — we list the direct connections you both share. "
+                + "Example: if you and Maria both know Ana, Ana shows up as a mutual friend and can introduce you.");
+        mDesc.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+        mDesc.setWrapText(true);
+
+        HBox mInputRow = new HBox(12);
+        mInputRow.setAlignment(Pos.CENTER_LEFT);
+        Label pickLabel = new Label("Compare with:");
+        ComboBox<StudentNode> compCombo = new ComboBox<>();
+        for (StudentNode n : networkService.getGraph().getAllNodes()) {
+            if (!n.getStudentId().equals(currentUser.getStudentId())) {
+                compCombo.getItems().add(n);
+            }
+        }
+        compCombo.setConverter(studentNodeConverter());
+        compCombo.setMinWidth(260);
+        compCombo.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(compCombo, Priority.ALWAYS);
+
+        Button compBtn = new Button("Find Mutuals");
+        compBtn.getStyleClass().add("button-primary");
+
+        mInputRow.getChildren().addAll(pickLabel, compCombo, compBtn);
+
+        VBox mutualResults = new VBox(8);
+        mutualResults.setVisible(false);
+        mutualResults.setManaged(false);
+
+        compBtn.setOnAction(e -> {
+            StudentNode other = compCombo.getValue();
+            if (other == null) return;
+
+            List<String> mutuals = networkService.getMutualConnections(currentUser.getStudentId(), other.getStudentId());
+            mutualResults.getChildren().clear();
+
+            if (mutuals.isEmpty()) {
+                Label noM = new Label("No mutual friends with " + other.getFullName() + " yet.");
+                noM.setStyle("-fx-text-fill: -fx-ink-soft;");
+                mutualResults.getChildren().add(noM);
+            } else {
+                Label mCount = new Label("Mutual Friends (" + mutuals.size() + "):");
+                mCount.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink;");
+                mutualResults.getChildren().add(mCount);
+
+                FlowPane chips = new FlowPane(8, 8);
+                for (String mId : mutuals) {
+                    StudentNode mNode = networkService.getGraph().getNode(mId);
+                    Label chip = new Label(mNode != null ? mNode.getFullName() : mId);
+                    chip.setGraphic(SvgIcons.icon(SvgIcons.Glyph.USER, 12, "svg-icon"));
+                    chip.getStyleClass().add("chip-selected");
+                    chips.getChildren().add(chip);
+                }
+                mutualResults.getChildren().add(chips);
+            }
+            mutualResults.setVisible(true);
+            mutualResults.setManaged(true);
+        });
+
+        connectCard.getChildren().addAll(connectTitle, connectDesc, connectRow, mutualSeparator, mTitle, mDesc, mInputRow, mutualResults);
         mainBox.getChildren().add(connectCard);
 
         // 4. Direct Connections List Card
@@ -1094,59 +1501,6 @@ public class StudentDashboardView extends BorderPane {
         }
         mainBox.getChildren().add(connCard);
 
-        // 5. Mutual Connection Analyzer
-        VBox mutualCard = new VBox(12);
-        mutualCard.getStyleClass().add("card");
-        Label mTitle = new Label("Mutual Connections Finder");
-        mTitle.getStyleClass().add("card-title");
-
-        HBox mInputRow = new HBox(14);
-        mInputRow.setAlignment(Pos.CENTER_LEFT);
-        Label pickLabel = new Label("Compare with:");
-        ComboBox<StudentNode> compCombo = new ComboBox<>();
-        compCombo.getItems().addAll(networkService.getGraph().getAllNodes());
-        compCombo.setMinWidth(260);
-
-        Button compBtn = new Button("Find Mutuals");
-        compBtn.getStyleClass().add("button-primary");
-
-        mInputRow.getChildren().addAll(pickLabel, compCombo, compBtn);
-
-        VBox mutualResults = new VBox(8);
-        mutualResults.setVisible(false);
-
-        compBtn.setOnAction(e -> {
-            StudentNode other = compCombo.getValue();
-            if (other == null) return;
-
-            List<String> mutuals = networkService.getMutualConnections(currentUser.getStudentId(), other.getStudentId());
-            mutualResults.getChildren().clear();
-
-            Label mCount = new Label("Mutual Friends: " + mutuals.size());
-            mCount.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink;");
-            mutualResults.getChildren().add(mCount);
-
-            if (mutuals.isEmpty()) {
-                Label noM = new Label("No mutual direct connections with " + other.getFullName() + ".");
-                noM.setStyle("-fx-text-fill: -fx-ink-soft;");
-                mutualResults.getChildren().add(noM);
-            } else {
-                FlowPane chips = new FlowPane(8, 8);
-                for (String mId : mutuals) {
-                    StudentNode mNode = networkService.getGraph().getNode(mId);
-                    Label chip = new Label(mNode != null ? mNode.getFullName() : mId);
-                    chip.setGraphic(SvgIcons.icon(SvgIcons.Glyph.USER, 12, "svg-icon"));
-                    chip.getStyleClass().add("chip-selected");
-                    chips.getChildren().add(chip);
-                }
-                mutualResults.getChildren().add(chips);
-            }
-            mutualResults.setVisible(true);
-        });
-
-        mutualCard.getChildren().addAll(mTitle, mInputRow, mutualResults);
-        mainBox.getChildren().add(mutualCard);
-
         contentArea.getChildren().setAll(mainBox);
     }
 
@@ -1154,8 +1508,7 @@ public class StudentDashboardView extends BorderPane {
     // 4. NETWORK ANALYTICS & DEGREE CENTRALITY
     // ==================================================
     private void showAnalyticsScreen() {
-        windowBackBtn.setVisible(true);
-        windowTitleLbl.setText("Settings > Network Graph & Hubs");
+        setBreadcrumb("Settings > Network Graph & Hubs");
 
         VBox mainBox = new VBox(18);
         mainBox.setPadding(new Insets(20, 36, 30, 36));
@@ -1166,12 +1519,15 @@ public class StudentDashboardView extends BorderPane {
         );
 
         HBox stats = new HBox(14);
-        stats.getChildren().addAll(
-                createMetricPill("Total Students (V)", String.valueOf(networkService.getGraph().getVertexCount()), "-fx-accent"),
-                createMetricPill("Total Connections (E)", String.valueOf(networkService.getGraph().getEdgeCount()), "-fx-green"),
-                createMetricPill("Your Degree", String.valueOf(networkService.getGraph().getDegree(currentUser.getStudentId())), "-fx-accent"),
-                createMetricPill("Your Centrality", String.format("%.2f", networkService.getCentrality(currentUser.getStudentId())), "-fx-accent-hover")
-        );
+        VBox pillV = createMetricPill("Total Students (V)", String.valueOf(networkService.getGraph().getVertexCount()), "-fx-accent");
+        VBox pillE = createMetricPill("Total Connections (E)", String.valueOf(networkService.getGraph().getEdgeCount()), "-fx-green");
+        VBox pillDeg = createMetricPill("Your Degree", String.valueOf(networkService.getGraph().getDegree(currentUser.getStudentId())), "-fx-accent");
+        VBox pillCent = createMetricPill("Your Centrality", String.format("%.2f", networkService.getCentrality(currentUser.getStudentId())), "-fx-accent-hover");
+        for (VBox pill : new VBox[]{pillV, pillE, pillDeg, pillCent}) {
+            HBox.setHgrow(pill, Priority.ALWAYS);
+            pill.setMaxWidth(Double.MAX_VALUE);
+        }
+        stats.getChildren().addAll(pillV, pillE, pillDeg, pillCent);
 
         // Top Coordinators
         VBox hubsCard = new VBox(12);
@@ -1194,7 +1550,9 @@ public class StudentDashboardView extends BorderPane {
             rank.setStyle("-fx-font-weight: 700; -fx-text-fill: -fx-accent; -fx-min-width: 30;");
 
             Label name = new Label(node.getFullName() + " (" + node.getStudentId() + ")");
-            name.setStyle("-fx-font-weight: 600; -fx-min-width: 240; -fx-text-fill: -fx-ink;");
+            name.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink;");
+            HBox.setHgrow(name, Priority.ALWAYS);
+            name.setMaxWidth(Double.MAX_VALUE);
 
             Label degLbl = new Label(deg + " connection(s)");
             degLbl.setStyle("-fx-text-fill: -fx-accent; -fx-font-weight: 500; -fx-min-width: 140;");

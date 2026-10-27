@@ -34,16 +34,29 @@ public class DataSeeder {
         ConnectionDao connDao = new ConnectionDao();
 
         // 1. Ensure Admin exists
-        if (userDao.getUserById("admin") == null) {
-            User admin = new User();
+        User admin = userDao.getUserById("admin");
+        if (admin == null) {
+            admin = new User();
             admin.setStudentId("admin");
             admin.setNames("System", null, "Administrator", null);
-            admin.setPasswordHash(DatabaseManager.hashPassword("admin123"));
+            admin.setPasswordHash(DatabaseManager.hashPassword("admin"));
             admin.setRole(Role.ADMIN);
             admin.setVerificationStatus(VerificationStatus.APPROVED);
             admin.setProfileCompleted(true);
             admin.setCreatedAt(LocalDateTime.now());
             userDao.createUser(admin);
+        } else {
+            // Ensure admin password hash is updated to "admin"
+            String targetHash = DatabaseManager.hashPassword("admin");
+            if (!targetHash.equals(admin.getPasswordHash())) {
+                try (java.sql.Connection conn = DatabaseManager.getInstance().getConnection();
+                     java.sql.PreparedStatement stmt = conn.prepareStatement("UPDATE users SET password_hash = ? WHERE student_id = 'admin';")) {
+                    stmt.setString(1, targetHash);
+                    stmt.executeUpdate();
+                } catch (java.sql.SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         // 2. Ensure Sample Pending Student exists for Admin Verification Demo

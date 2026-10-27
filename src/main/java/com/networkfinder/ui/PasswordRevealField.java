@@ -68,6 +68,12 @@ public class PasswordRevealField extends StackPane {
         return maskedField.getText();
     }
 
+    /** Sets the content of both the masked and mirrored fields. */
+    public void setValue(String value) {
+        maskedField.setText(value);
+        plainField.setText(value);
+    }
+
     /** Focuses whichever field is currently visible (for initial focus helpers). */
     public void requestValueFocus() {
         (maskedField.isVisible() ? maskedField : plainField).requestFocus();

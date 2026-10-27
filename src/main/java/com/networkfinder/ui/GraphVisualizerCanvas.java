@@ -56,8 +56,10 @@ public class GraphVisualizerCanvas extends Pane {
         double height = getHeight() > 0 ? getHeight() : 480;
         double centerX = width / 2.0;
         double centerY = height / 2.0;
-        double radius = Math.min(centerX, centerY) - 70;
-        if (radius < 80) radius = 80;
+        double radiusX = centerX - 90;
+        if (radiusX < 80) radiusX = 80;
+        double radiusY = centerY - 70;
+        if (radiusY < 80) radiusY = 80;
 
         List<StudentNode> nodeList = new ArrayList<>(nodes);
         Map<String, double[]> nodePositions = new HashMap<>();
@@ -65,8 +67,8 @@ public class GraphVisualizerCanvas extends Pane {
         int total = nodeList.size();
         for (int i = 0; i < total; i++) {
             double angle = (2 * Math.PI * i) / total - (Math.PI / 2);
-            double x = centerX + radius * Math.cos(angle);
-            double y = centerY + radius * Math.sin(angle);
+            double x = centerX + radiusX * Math.cos(angle);
+            double y = centerY + radiusY * Math.sin(angle);
             nodePositions.put(nodeList.get(i).getStudentId(), new double[]{x, y});
         }
 

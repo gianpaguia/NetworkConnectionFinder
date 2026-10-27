@@ -37,6 +37,7 @@ public class ProfileWizardView extends StackPane {
     private final VBox stepContentContainer = new VBox(20);
     private final Label progressText = new Label("Step 1 of 5");
     private final HBox progressIndicator = new HBox(4);
+    private VBox sidePanelContainer;
 
     public ProfileWizardView(User user) {
         this.user = user;
@@ -63,16 +64,10 @@ public class ProfileWizardView extends StackPane {
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        VBox root = new VBox(20);
-        root.setAlignment(Pos.CENTER);
-        root.setMaxWidth(680);
-        root.setPadding(new Insets(10, 20, 40, 20));
-
-        // Top wizard card
         VBox card = new VBox(22);
         card.getStyleClass().add("wizard-card");
+        card.setMaxWidth(Double.MAX_VALUE);
 
-        // Progress bar header
         VBox progressHeader = new VBox(8);
         progressHeader.setAlignment(Pos.CENTER);
 
@@ -80,15 +75,20 @@ public class ProfileWizardView extends StackPane {
         progressText.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-accent; -fx-font-size: 13px;");
 
         progressHeader.getChildren().addAll(progressIndicator, progressText);
-
         card.getChildren().addAll(progressHeader, stepContentContainer);
-        root.getChildren().add(card);
 
-        StackPane centerWrapper = new StackPane(root);
-        centerWrapper.setAlignment(Pos.CENTER);
-        centerWrapper.setPadding(new Insets(10, 0, 30, 0));
+        HBox columns = new HBox(20);
+        columns.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(card, Priority.ALWAYS);
+        sidePanelContainer = buildSidePanel();
+        columns.getChildren().addAll(card, sidePanelContainer);
 
-        scroll.setContent(centerWrapper);
+        VBox root = new VBox(16);
+        root.setMaxWidth(Double.MAX_VALUE);
+        root.setPadding(new Insets(6, 36, 40, 36));
+        root.getChildren().addAll(buildWizardHero(), columns);
+
+        scroll.setContent(root);
 
         BorderPane mainLayout = new BorderPane();
         mainLayout.setTop(topBar);
@@ -141,6 +141,7 @@ public class ProfileWizardView extends StackPane {
     private void renderStep() {
         updateProgressDots();
         stepContentContainer.getChildren().clear();
+        refreshSidePanel();
 
         switch (currentStep) {
             case 1 -> renderStep1();
@@ -149,6 +150,119 @@ public class ProfileWizardView extends StackPane {
             case 4 -> renderStep4();
             case 5 -> renderStep5();
         }
+    }
+
+    private VBox buildWizardHero() {
+        HBox heroRow = new HBox(18);
+        heroRow.setAlignment(Pos.CENTER_LEFT);
+        heroRow.setPadding(new Insets(6, 4, 2, 4));
+
+        StackPane iconBox = new StackPane();
+        iconBox.getStyleClass().add("fluent-tile-icon-box");
+        iconBox.getChildren().add(SvgIcons.icon(SvgIcons.Glyph.GRADUATION_CAP, 26, "svg-icon-accent"));
+
+        VBox textCol = new VBox(4);
+        Label title = new Label("Profile Setup");
+        title.getStyleClass().add("fluent-user-name");
+        Label subtitle = new Label("5 quick questions so the Study Group Matcher can find your best study partners on campus.");
+        subtitle.getStyleClass().add("fluent-user-subtitle");
+        textCol.getChildren().addAll(title, subtitle);
+
+        heroRow.getChildren().addAll(iconBox, textCol);
+
+        VBox hero = new VBox();
+        hero.getChildren().add(heroRow);
+        return hero;
+    }
+
+    private VBox buildSidePanel() {
+        VBox side = new VBox(16);
+        side.setMinWidth(340);
+        side.setMaxWidth(340);
+        fillSidePanel(side);
+        return side;
+    }
+
+    private void refreshSidePanel() {
+        if (sidePanelContainer != null) {
+            fillSidePanel(sidePanelContainer);
+        }
+    }
+
+    private void fillSidePanel(VBox side) {
+        VBox whyCard = new VBox(12);
+        whyCard.getStyleClass().add("card");
+        whyCard.setPadding(new Insets(18, 20, 16, 20));
+
+        Label whyTitle = new Label("Why we ask");
+        whyTitle.getStyleClass().add("card-title");
+
+        VBox tipsBox = new VBox(10);
+        for (String tip : stepTips()) {
+            HBox tipRow = new HBox(10);
+            tipRow.setAlignment(Pos.TOP_LEFT);
+            Node icon = SvgIcons.icon(SvgIcons.Glyph.LIGHTBULB, 14, "svg-icon-accent");
+            Label text = new Label(tip);
+            text.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+            text.setWrapText(true);
+            text.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(text, Priority.ALWAYS);
+            tipRow.getChildren().addAll(icon, text);
+            tipsBox.getChildren().add(tipRow);
+        }
+
+        whyCard.getChildren().addAll(whyTitle, tipsBox);
+
+        VBox summaryCard = new VBox(10);
+        summaryCard.getStyleClass().add("card");
+        summaryCard.setPadding(new Insets(18, 20, 16, 20));
+
+        Label sumTitle = new Label("Your answers");
+        sumTitle.getStyleClass().add("card-title");
+
+        GridPane sumGrid = new GridPane(14, 7);
+        String course = courseAbbreviation(selectedCourse);
+        String[][] rows = {
+                {"Course", course != null ? course
+                        : (selectedCourse == null || selectedCourse.isBlank() ? "-" : "Custom")},
+                {"Year", selectedYear == null || selectedYear.isBlank() ? "-" : selectedYear},
+                {"Section", enteredSection == null || enteredSection.isBlank() ? "-" : enteredSection},
+                {"Subjects", selectedSubjects.size() + " selected"},
+                {"Study habits", selectedHabits.size() + " selected"},
+                {"Group size", selectedGroupSize == null ? "-" : selectedGroupSize},
+                {"Interests", selectedInterests.size() + " selected"}
+        };
+        for (int i = 0; i < rows.length; i++) {
+            Label key = new Label(rows[i][0]);
+            key.getStyleClass().add("helper-text");
+            Label val = new Label(rows[i][1]);
+            val.setStyle("-fx-text-fill: -fx-ink; -fx-font-weight: 600; -fx-font-size: 12px;");
+            sumGrid.add(key, 0, i);
+            sumGrid.add(val, 1, i);
+        }
+
+        summaryCard.getChildren().addAll(sumTitle, sumGrid);
+        side.getChildren().setAll(whyCard, summaryCard);
+    }
+
+    private String[] stepTips() {
+        return switch (currentStep) {
+            case 1 -> new String[]{
+                    "Your course groups you with classmates who take the same core subjects — the strongest match signal.",
+                    "Your year level decides which sections you can pick in the next step."};
+            case 2 -> new String[]{
+                    "We prioritize classmates from your exact section (e.g. BSIT 2A) when recommending partners.",
+                    "Pick the section printed on your class schedule."};
+            case 3 -> new String[]{
+                    "Shared subjects become the topics of suggested study groups.",
+                    "Choose at least 2 subjects to unlock matching."};
+            case 4 -> new String[]{
+                    "Overlapping study habits raise a partner's compatibility score.",
+                    "Group size matches you with students who prefer the same setup."};
+            default -> new String[]{
+                    "Interests power ice-breaker suggestions and org recommendations.",
+                    "The extra text field is optional — add any hobby not listed."};
+        };
     }
 
     // ==================================================
@@ -230,10 +344,18 @@ public class ProfileWizardView extends StackPane {
         Label secLabel = new Label("Section");
         secLabel.getStyleClass().add("field-label");
 
-        TextField secField = new TextField(enteredSection);
-        secField.setPromptText("Example: BSIT 1A");
-        secField.textProperty().addListener((obs, old, val) -> enteredSection = val);
-        inputSection.getChildren().addAll(secLabel, secField);
+        List<String> sectionOptions = buildSectionOptions();
+        ComboBox<String> secCombo = new ComboBox<>();
+        secCombo.getItems().addAll(sectionOptions);
+        secCombo.setPromptText("Select your section");
+        secCombo.setMaxWidth(Double.MAX_VALUE);
+        if (enteredSection != null && !enteredSection.isBlank() && sectionOptions.contains(enteredSection)) {
+            secCombo.setValue(enteredSection);
+        } else {
+            enteredSection = "";
+        }
+        secCombo.setOnAction(e -> enteredSection = secCombo.getValue() == null ? "" : secCombo.getValue());
+        inputSection.getChildren().addAll(secLabel, secCombo);
 
         Label errorLabel = new Label();
         errorLabel.getStyleClass().add("form-error");
@@ -268,6 +390,36 @@ public class ProfileWizardView extends StackPane {
         navBox.getChildren().addAll(backBtn, spacer, continueBtn);
         box.getChildren().addAll(heading, subtitle, inputSection, errorLabel, navBox);
         stepContentContainer.getChildren().setAll(box);
+    }
+
+    private List<String> buildSectionOptions() {
+        String abbr = courseAbbreviation(selectedCourse);
+        String[] abbrs = abbr != null ? new String[]{abbr} : new String[]{"BSIT", "BSCS", "BSIS", "BSBA"};
+        int year = parseYearDigit(selectedYear);
+        List<String> options = new ArrayList<>();
+        for (String a : abbrs) {
+            options.add(a + " " + year + "A");
+            options.add(a + " " + year + "B");
+            options.add(a + " " + year + "C");
+            options.add(a + " " + year + "D");
+        }
+        return options;
+    }
+
+    private int parseYearDigit(String year) {
+        if (year != null && !year.isBlank() && Character.isDigit(year.charAt(0))) {
+            return Character.getNumericValue(year.charAt(0));
+        }
+        return 1;
+    }
+
+    private String courseAbbreviation(String course) {
+        if (course == null) return null;
+        if (course.contains("Information Technology")) return "BSIT";
+        if (course.contains("Computer Science")) return "BSCS";
+        if (course.contains("Information Systems")) return "BSIS";
+        if (course.contains("Business Administration")) return "BSBA";
+        return null;
     }
 
     // ==================================================
@@ -361,6 +513,14 @@ public class ProfileWizardView extends StackPane {
         GridPane habitsGrid = new GridPane();
         habitsGrid.setHgap(12);
         habitsGrid.setVgap(10);
+        habitsGrid.setMaxWidth(Double.MAX_VALUE);
+        for (int i = 0; i < 3; i++) {
+            ColumnConstraints col = new ColumnConstraints();
+            col.setPercentWidth(100.0 / 3);
+            col.setHgrow(Priority.ALWAYS);
+            col.setFillWidth(true);
+            habitsGrid.getColumnConstraints().add(col);
+        }
 
         String[] habits = {
                 "Reviewing Lessons",
@@ -378,7 +538,7 @@ public class ProfileWizardView extends StackPane {
             hBtn.setGraphic(SvgIcons.icon(habitIcon(val), 16, "svg-icon-accent"));
             boolean selected = selectedHabits.contains(val);
             hBtn.getStyleClass().add(selected ? "selectable-card-selected" : "selectable-card");
-            hBtn.setPrefWidth(280);
+            hBtn.setMaxWidth(Double.MAX_VALUE);
             hBtn.setOnAction(e -> {
                 if (selectedHabits.contains(val)) selectedHabits.remove(val);
                 else selectedHabits.add(val);
@@ -386,7 +546,7 @@ public class ProfileWizardView extends StackPane {
             });
             habitsGrid.add(hBtn, col, row);
             col++;
-            if (col > 1) {
+            if (col > 2) {
                 col = 0;
                 row++;
             }

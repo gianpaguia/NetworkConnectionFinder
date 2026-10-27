@@ -68,6 +68,11 @@ public final class TextFieldFilters {
             if (!resulting.matches("[0-9]{0,8}(-[A-Z]{0,1})?")) {
                 return null;
             }
+            // Auto-insert the dash only while adding text (typing/paste).
+            // Rewriting on deletions would re-insert the dash the user just removed.
+            if (typed.isEmpty()) {
+                return change;
+            }
             if (resulting.matches("[0-9]{8}")) {
                 change.setRange(0, change.getControlText().length());
                 change.setText(resulting + "-");
