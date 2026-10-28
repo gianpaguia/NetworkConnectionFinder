@@ -1,6 +1,8 @@
 package com.networkfinder.ui;
 
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.DialogPane;
 
 public final class UiDialogs {
@@ -31,5 +33,17 @@ public final class UiDialogs {
         alert.setContentText(message);
         styleDialogPane(alert.getDialogPane());
         alert.showAndWait();
+    }
+
+    /** Asks the user to confirm signing out. Returns true only when explicitly confirmed. */
+    public static boolean confirmSignOut() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Sign Out");
+        alert.setHeaderText("Sign out of Network Connection Finder?");
+        alert.setContentText("You will be returned to the login screen and will need to sign in again to continue.");
+        styleDialogPane(alert.getDialogPane());
+        ButtonType signOutBtn = new ButtonType("Sign out", ButtonBar.ButtonData.OK_DONE);
+        alert.getDialogPane().getButtonTypes().setAll(signOutBtn, ButtonType.CANCEL);
+        return alert.showAndWait().filter(response -> response == signOutBtn).isPresent();
     }
 }

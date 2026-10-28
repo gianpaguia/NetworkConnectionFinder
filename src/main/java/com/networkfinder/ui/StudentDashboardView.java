@@ -8,16 +8,19 @@ import com.networkfinder.model.User;
 import com.networkfinder.service.NetworkService;
 import com.networkfinder.service.AuthService;
 import com.networkfinder.service.ValidationException;
+import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 
@@ -32,12 +35,16 @@ public class StudentDashboardView extends BorderPane {
     private final NetworkService networkService = NetworkService.getInstance();
     private final ProfileDao profileDao = new ProfileDao();
     private final Map<String, Integer> matcherPageState = new HashMap<>();
+    private int outgoingPage = 1;
 
     private final StackPane contentArea = new StackPane();
     private Button windowBackBtn;
     private Label windowTitleLbl;
     private Label brandTitleLbl;
     private List<VBox> allTiles = new ArrayList<>();
+    private static final PseudoClass FIELD_FOCUS = PseudoClass.getPseudoClass("field-focus");
+
+    @SuppressWarnings("this-escape")
 
     public StudentDashboardView(User user) {
         this.currentUser = user;
@@ -45,8 +52,13 @@ public class StudentDashboardView extends BorderPane {
 
         setTop(buildTopWindowBar());
 
+        // Fixed-size pages: the viewport is filled exactly, so the landing
+        // screen never scrolls; scrollbars only appear if content overflows
+        // (e.g. very long lists) as a safety valve.
         ScrollPane scrollPane = new ScrollPane(contentArea);
         scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         setCenter(scrollPane);
 
@@ -78,9 +90,9 @@ public class StudentDashboardView extends BorderPane {
 
         Button notifBtn = buildStudentNotificationButton();
 
-        Button settingsBtn = new Button("Settings · Account");
+        Button settingsBtn = new Button("Settings • Account");
         settingsBtn.getStyleClass().add("button-secondary");
-        settingsBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.SETTINGS, 15, "svg-icon-strong"));
+        settingsBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.SETTINGS, 17, "svg-icon-strong"));
         settingsBtn.setOnAction(e -> {
             setBreadcrumb("Settings > Account");
             showSettingsPanel();
@@ -88,10 +100,14 @@ public class StudentDashboardView extends BorderPane {
 
         Button logoutBtn = new Button("Sign out");
         logoutBtn.getStyleClass().add("button-secondary");
-        logoutBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.LOG_OUT, 15, "svg-icon-strong"));
-        logoutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
+        logoutBtn.setGraphic(SvgIcons.icon(SvgIcons.Glyph.LOG_OUT, 17, "svg-icon-strong"));
+        logoutBtn.setOnAction(e -> {
+            if (UiDialogs.confirmSignOut()) {
+                ScreenNavigator.showStudentLogin();
+            }
+        });
 
-        HBox rightBox = new HBox(10, notifBtn, settingsBtn, logoutBtn);
+        HBox rightBox = new HBox(12, notifBtn, settingsBtn, logoutBtn);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
         rightBox.setMinWidth(240);
 
@@ -122,7 +138,7 @@ public class StudentDashboardView extends BorderPane {
         HBox content = new HBox(6);
         content.setAlignment(Pos.CENTER);
 
-        Node bell = SvgIcons.icon(SvgIcons.Glyph.BELL, 15, count > 0 ? "svg-icon-warn" : "svg-icon");
+        Node bell = SvgIcons.icon(SvgIcons.Glyph.BELL, 17, count > 0 ? "svg-icon-warn" : "svg-icon");
         content.getChildren().add(bell);
 
         if (count > 0) {
@@ -145,44 +161,49 @@ public class StudentDashboardView extends BorderPane {
         UiDialogs.styleDialogPane(dialog.getDialogPane());
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        VBox box = new VBox(12);
-        box.setPrefWidth(420);
-        box.setPadding(new Insets(10, 0, 10, 0));
+        VBox box = new VBox(14);
+        box.setPrefWidth(520);
+        box.setPadding(new Insets(8, 2, 10, 2));
 
         if (incoming.isEmpty()) {
-            VBox emptyCard = new VBox(8);
+            VBox emptyCard = new VBox(10);
             emptyCard.setAlignment(Pos.CENTER);
-            emptyCard.setPadding(new Insets(20));
-            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 28, "svg-icon-success");
+            emptyCard.setPadding(new Insets(26, 20, 26, 20));
+            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 34, "svg-icon-success");
             Label emptyLbl = new Label("No new notifications");
-            emptyLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: 700; -fx-text-fill: -fx-ink;");
+            emptyLbl.setStyle("-fx-font-size: 17px; -fx-font-weight: 800; -fx-text-fill: -fx-ink;");
             Label subLbl = new Label("You have no pending incoming connection requests.");
-            subLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+            subLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 14px;");
             emptyCard.getChildren().addAll(checkIcon, emptyLbl, subLbl);
             box.getChildren().add(emptyCard);
         } else {
             Label header = new Label(incoming.size() + " Incoming Connection Request" + (incoming.size() > 1 ? "s" : ""));
-            header.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-accent;");
+            header.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: -fx-accent;");
             box.getChildren().add(header);
 
             for (com.networkfinder.model.Connection c : incoming) {
                 StudentNode sNode = networkService.getGraph().getNode(c.getRequesterId());
-                HBox item = new HBox(12);
+                HBox item = new HBox(14);
                 item.getStyleClass().add("notification-item");
                 item.setAlignment(Pos.CENTER_LEFT);
 
-                Node icon = SvgIcons.icon(SvgIcons.Glyph.USER, 16, "svg-icon-accent");
-                VBox textCol = new VBox(2);
+                StackPane iconBox = new StackPane();
+                iconBox.getStyleClass().add("fluent-status-icon");
+                iconBox.setPadding(new Insets(9));
+                iconBox.setStyle("-fx-background-color: -fx-accent-tint; -fx-background-radius: 10px; -fx-border-color: rgba(96, 205, 255, 0.35); -fx-border-radius: 10px;");
+                iconBox.getChildren().add(SvgIcons.icon(SvgIcons.Glyph.USER, 20, "svg-icon-accent"));
+
+                VBox textCol = new VBox(3);
                 Label name = new Label(sNode != null ? sNode.getFullName() : c.getRequesterId());
-                name.setStyle("-fx-font-weight: 600; -fx-font-size: 13px; -fx-text-fill: -fx-ink;");
+                name.setStyle("-fx-font-weight: 700; -fx-font-size: 15px; -fx-text-fill: -fx-ink;");
                 Label sub = new Label("Wants to connect on campus");
-                sub.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft;");
+                sub.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft;");
                 textCol.getChildren().addAll(name, sub);
                 HBox.setHgrow(textCol, Priority.ALWAYS);
 
                 Button acceptBtn = new Button("Accept");
                 acceptBtn.getStyleClass().add("button-primary");
-                acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                acceptBtn.setStyle("-fx-font-size: 13px; -fx-padding: 7px 18px;");
                 acceptBtn.setOnAction(ev -> {
                     networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId());
                     dialog.close();
@@ -191,8 +212,8 @@ public class StudentDashboardView extends BorderPane {
                 });
 
                 Button declineBtn = new Button("Decline");
-                declineBtn.getStyleClass().add("button-secondary");
-                declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-text-fill: -fx-danger;");
+                declineBtn.getStyleClass().add("button-ghost-danger");
+                declineBtn.setStyle("-fx-font-size: 13px; -fx-padding: 6px 18px;");
                 declineBtn.setOnAction(ev -> {
                     networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId());
                     dialog.close();
@@ -200,7 +221,7 @@ public class StudentDashboardView extends BorderPane {
                     showHomeScreen();
                 });
 
-                item.getChildren().addAll(icon, textCol, acceptBtn, declineBtn);
+                item.getChildren().addAll(iconBox, textCol, acceptBtn, declineBtn);
                 box.getChildren().add(item);
             }
         }
@@ -217,7 +238,8 @@ public class StudentDashboardView extends BorderPane {
 
         VBox homeBox = new VBox(0);
         homeBox.setAlignment(Pos.TOP_CENTER);
-        homeBox.setPadding(new Insets(10, 0, 40, 0));
+        homeBox.setPadding(new Insets(6, 0, 12, 0));
+        homeBox.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         // 1. Hero Profile Banner (Allisia Rose style)
         HBox heroBanner = new HBox(20);
@@ -225,7 +247,7 @@ public class StudentDashboardView extends BorderPane {
         heroBanner.setAlignment(Pos.CENTER_LEFT);
 
         // Circular Avatar
-        StackPane avatarPane = buildClickableAvatar(42);
+        StackPane avatarPane = buildClickableAvatar(34);
 
         // User Meta
         VBox metaBox = new VBox(2);
@@ -261,35 +283,45 @@ public class StudentDashboardView extends BorderPane {
         // 2. Centered Search Box
         VBox searchContainer = new VBox(8);
         searchContainer.getStyleClass().add("fluent-search-box");
+        searchContainer.setAlignment(Pos.CENTER);
 
         TextField searchField = new TextField();
-        searchField.setPromptText("Find a setting or student");
-        searchField.getStyleClass().add("fluent-search-field");
+        searchField.setPromptText("Search dashboard features   •   Enter opens the first match");
+        searchField.getStyleClass().add("fluent-search-field-inline");
 
-        searchContainer.getChildren().add(searchField);
+        Node searchGlyph = SvgIcons.icon(SvgIcons.Glyph.SEARCH, 17, "svg-icon-strong");
+        HBox searchShell = new HBox(12, searchGlyph, searchField);
+        searchShell.getStyleClass().add("fluent-search-wrapper");
+        searchShell.setAlignment(Pos.CENTER_LEFT);
+        searchShell.setPrefWidth(500);
+        searchShell.setMaxWidth(560);
+        HBox.setHgrow(searchField, Priority.ALWAYS);
+        searchField.focusedProperty().addListener((obs, was, now) ->
+                searchShell.pseudoClassStateChanged(FIELD_FOCUS, now));
 
-        // 3. Category Grid (Fluent Tiles) - stretches to fill maximized windows
+        Label searchHint = new Label();
+        searchHint.getStyleClass().add("helper-text");
+        searchHint.setVisible(false);
+        searchHint.setManaged(false);
+        searchContainer.getChildren().addAll(searchShell, searchHint);
+
+        // 3. Category Grid (Fluent Tiles) - stretches to fill the whole window
         GridPane tileGrid = new GridPane();
         tileGrid.getStyleClass().add("fluent-grid-container");
-        tileGrid.setHgap(16);
-        tileGrid.setVgap(16);
+        tileGrid.setHgap(14);
+        tileGrid.setVgap(14);
         tileGrid.setMaxWidth(Double.MAX_VALUE);
-        for (int i = 0; i < 3; i++) {
+        tileGrid.setMaxHeight(Double.MAX_VALUE);
+        for (int i = 0; i < 5; i++) {
             ColumnConstraints col = new ColumnConstraints();
             col.setHgrow(Priority.ALWAYS);
             col.setFillWidth(true);
-            col.setPercentWidth(100.0 / 3);
+            col.setPercentWidth(20.0);
             tileGrid.getColumnConstraints().add(col);
         }
-        RowConstraints rowA = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
-        rowA.setFillHeight(true);
-        tileGrid.getRowConstraints().add(rowA);
-        RowConstraints rowB = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
-        rowB.setFillHeight(true);
-        tileGrid.getRowConstraints().add(rowB);
-        RowConstraints rowC = new RowConstraints(118, 118, Region.USE_PREF_SIZE);
-        rowC.setFillHeight(true);
-        tileGrid.getRowConstraints().add(rowC);
+        RowConstraints heroRow = new RowConstraints(510, Region.USE_COMPUTED_SIZE, 560);
+        heroRow.setFillHeight(true);
+        tileGrid.getRowConstraints().add(heroRow);
 
         allTiles.clear();
 
@@ -320,21 +352,55 @@ public class StudentDashboardView extends BorderPane {
         allTiles.addAll(Arrays.asList(tileMatcher, tilePathfinder, tileConnections, tileAnalytics, tileProfile));
         layoutTilesOnGrid(tileGrid, allTiles);
 
-        // Live search filter on tiles
+        java.util.concurrent.atomic.AtomicReference<List<VBox>> visibleTilesRef =
+                new java.util.concurrent.atomic.AtomicReference<>(List.of());
+
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             String query = (newVal == null) ? "" : newVal.toLowerCase().trim();
             List<VBox> visibleTiles = new ArrayList<>();
             for (VBox t : allTiles) {
-                Label tTitle = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(0);
-                Label tDesc = (Label) ((VBox) ((HBox) t.getChildren().get(0)).getChildren().get(1)).getChildren().get(1);
-                if (query.isEmpty() || tTitle.getText().toLowerCase().contains(query) || tDesc.getText().toLowerCase().contains(query)) {
+                String title = String.valueOf(t.getProperties().getOrDefault("tileTitle", ""));
+                String desc = String.valueOf(t.getProperties().getOrDefault("tileDesc", ""));
+                if (query.isEmpty() || title.toLowerCase().contains(query) || desc.toLowerCase().contains(query)) {
                     visibleTiles.add(t);
                 }
             }
+            visibleTilesRef.set(visibleTiles);
             layoutTilesOnGrid(tileGrid, visibleTiles);
+
+            if (query.isEmpty()) {
+                searchHint.setVisible(false);
+                searchHint.setManaged(false);
+            } else if (visibleTiles.isEmpty()) {
+                searchHint.setText("No dashboard feature matches \"" + newVal.trim() + "\".");
+                searchHint.setVisible(true);
+                searchHint.setManaged(true);
+            } else {
+                searchHint.setText(visibleTiles.size() + " of " + allTiles.size() + " features match \""
+                        + newVal.trim() + "\" — press Enter to open the first one.");
+                searchHint.setVisible(true);
+                searchHint.setManaged(true);
+            }
         });
 
-        homeBox.getChildren().addAll(heroBanner, searchContainer, tileGrid);
+        searchField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                List<VBox> visible = visibleTilesRef.get();
+                if (!visible.isEmpty()) {
+                    Object action = visible.get(0).getProperties().get("tileAction");
+                    if (action instanceof Runnable runnable) {
+                        runnable.run();
+                    }
+                }
+            }
+        });
+
+        Region topStretch = new Region();
+        VBox.setVgrow(topStretch, Priority.ALWAYS);
+        Region bottomStretch = new Region();
+        VBox.setVgrow(bottomStretch, Priority.ALWAYS);
+
+        homeBox.getChildren().addAll(heroBanner, topStretch, searchContainer, tileGrid, bottomStretch);
         contentArea.getChildren().setAll(homeBox);
     }
 
@@ -342,10 +408,15 @@ public class StudentDashboardView extends BorderPane {
         VBox card = new VBox(3);
         card.getStyleClass().add("fluent-status-card");
 
+        HBox content = new HBox(10);
+        content.setAlignment(Pos.CENTER_LEFT);
+        content.setMaxWidth(Double.MAX_VALUE);
+
         StackPane iconHolder = new StackPane();
         iconHolder.getStyleClass().add("fluent-status-icon");
         iconHolder.getChildren().add(icon);
 
+        VBox textCol = new VBox(1);
         Label titleLbl = new Label(title);
 
         Label subLbl = new Label(sub);
@@ -354,49 +425,43 @@ public class StudentDashboardView extends BorderPane {
             subLbl.setStyle("-fx-text-fill: -fx-green;");
         }
 
-        card.getChildren().addAll(iconHolder, titleLbl, subLbl);
+        textCol.getChildren().addAll(titleLbl, subLbl);
+        content.getChildren().addAll(iconHolder, textCol);
+        card.getChildren().add(content);
         return card;
     }
 
-    /** Places tiles into the stretchy 3-column grid, row by row (always within the 3 constrained columns). */
+    /** Places tiles into the single row of five equal hero cards (filtered subsets keep the same geometry). */
     private void layoutTilesOnGrid(GridPane grid, List<VBox> tiles) {
         grid.getChildren().clear();
-        int column = 0;
-        for (VBox tile : tiles) {
-            grid.add(tile, column % 3, column / 3);
-            column++;
+        for (int i = 0; i < tiles.size(); i++) {
+            grid.add(tiles.get(i), i, 0);
         }
     }
 
     private VBox createFluentTile(Node icon, String title, String desc, Runnable onClick) {
-        VBox card = new VBox();
+        VBox card = new VBox(14);
         card.getStyleClass().add("fluent-tile");
-        card.setMaxWidth(Double.MAX_VALUE);
-
-        HBox inner = new HBox(16);
-        inner.setAlignment(Pos.CENTER_LEFT);
-        inner.setMaxWidth(Double.MAX_VALUE);
+        card.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        card.getProperties().put("tileAction", onClick);
+        card.getProperties().put("tileTitle", title);
+        card.getProperties().put("tileDesc", desc);
 
         StackPane iconBox = new StackPane();
         iconBox.getStyleClass().add("fluent-tile-icon-box");
         iconBox.getChildren().add(icon);
 
-        VBox textCol = new VBox(4);
         Label titleLbl = new Label(title);
         titleLbl.getStyleClass().add("fluent-tile-title");
+        titleLbl.setWrapText(true);
+        titleLbl.setTextAlignment(TextAlignment.CENTER);
 
         Label descLbl = new Label(desc);
         descLbl.getStyleClass().add("fluent-tile-desc");
-        descLbl.setWrapText(false);
-        descLbl.setTextOverrun(OverrunStyle.ELLIPSIS);
-        descLbl.setMaxWidth(Double.MAX_VALUE);
-        Tooltip.install(descLbl, new Tooltip(desc));
-        textCol.setMaxWidth(Double.MAX_VALUE);
+        descLbl.setWrapText(true);
+        descLbl.setTextAlignment(TextAlignment.CENTER);
 
-        textCol.getChildren().addAll(titleLbl, descLbl);
-        HBox.setHgrow(textCol, Priority.ALWAYS);
-        inner.getChildren().addAll(iconBox, textCol);
-        card.getChildren().add(inner);
+        card.getChildren().addAll(iconBox, titleLbl, descLbl);
 
         card.setOnMouseClicked(e -> onClick.run());
         return card;
@@ -410,17 +475,17 @@ public class StudentDashboardView extends BorderPane {
     }
 
     // ==================================================
-    // SETTINGS · ACCOUNT (change password, session)
+    // SETTINGS • ACCOUNT (change password, session)
     // ==================================================
     private void showSettingsPanel() {
         setBreadcrumb("Settings > Account");
 
         VBox mainBox = new VBox(16);
-        mainBox.setPadding(new Insets(20, 36, 30, 36));
+        mainBox.setPadding(new Insets(18, 36, 24, 36));
 
         mainBox.getChildren().add(buildSubScreenHeader(
                 "Account Settings",
-                "Manage your sign-in credentials and end your session."
+                "Manage your sign-in credentials and keep your account secure."
         ));
 
         // 1. Account summary card
@@ -586,23 +651,9 @@ public class StudentDashboardView extends BorderPane {
 
         passwordCard.getChildren().addAll(pwTitle, pwHint, errorLabel, currentBox, newBox, confirmBox, saveBtn, successLabel);
 
-        // 4. Session card
-        VBox sessionCard = new VBox(12);
-        sessionCard.getStyleClass().add("card");
-        sessionCard.setPadding(new Insets(18, 22, 20, 22));
-
-        Label sessionTitle = new Label("Session");
-        sessionTitle.getStyleClass().add("card-title");
-        Label sessionDesc = new Label("Signing out returns you to the student login screen. Unconfirmed connection requests stay saved in the network.");
-        sessionDesc.getStyleClass().add("screen-subtitle");
-
-        Button signOutBtn = new Button("Sign out");
-        signOutBtn.getStyleClass().add("button-danger");
-        signOutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
-
-        sessionCard.getChildren().addAll(sessionTitle, sessionDesc, signOutBtn);
-
-        mainBox.getChildren().addAll(accountCard, verificationCard, passwordCard, sessionCard);
+        // Signing out lives in the top navigation bar, so no duplicate
+        // session card is shown here.
+        mainBox.getChildren().addAll(accountCard, verificationCard, passwordCard);
         contentArea.getChildren().setAll(mainBox);
     }
 
@@ -614,7 +665,7 @@ public class StudentDashboardView extends BorderPane {
         } else if (currentUser.getVerificationStatus() == com.networkfinder.model.VerificationStatus.PENDING) {
             badge.getStyleClass().add("badge-pending");
         } else {
-            badge.setStyle("-fx-padding: 3 10; -fx-background-radius: 999; -fx-font-size: 11px; "
+            badge.setStyle("-fx-padding: 3 10; -fx-background-radius: 999; -fx-font-size: 12px; "
                     + "-fx-font-weight: 700; -fx-text-fill: -fx-danger; -fx-background-color: rgba(239, 68, 68, 0.16);");
         }
         return badge;
@@ -760,15 +811,16 @@ public class StudentDashboardView extends BorderPane {
     private void showStudyGroupMatcherScreen() {
         setBreadcrumb("Settings > Study Group Matcher");
 
-        VBox mainBox = new VBox(16);
-        mainBox.setPadding(new Insets(20, 36, 30, 36));
+        VBox mainBox = new VBox(14);
+        mainBox.setPadding(new Insets(16, 32, 18, 32));
+        mainBox.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         Node header = buildSubScreenHeader(
                 "Study Group Matcher",
                 "Discovers compatible peers using Level-Order BFS traversal grouped by social distance."
         );
 
-        // Filter Bar Card
+        // Filter Bar Card (filters apply instantly - there is no Search button)
         HBox filterCard = new HBox(12);
         filterCard.getStyleClass().add("card");
         filterCard.setAlignment(Pos.CENTER_LEFT);
@@ -792,19 +844,15 @@ public class StudentDashboardView extends BorderPane {
         groupSizeFilter.getItems().addAll("Any Group Size", "Small Group", "Medium Group", "Large Group");
         groupSizeFilter.setValue("Any Group Size");
 
-        Button searchBtn = new Button("Search Peers");
-        searchBtn.getStyleClass().add("button-primary");
-
         filterCard.getChildren().addAll(
                 nameSearchField,
                 new Label("Filters:"),
                 subjectFilter,
                 sameSectionCheck,
-                groupSizeFilter,
-                searchBtn
+                groupSizeFilter
         );
 
-        VBox resultsBox = new VBox(14);
+        VBox resultsBox = new VBox(12);
 
         Runnable[] searchRef = new Runnable[1];
         Runnable executeSearch = () -> {
@@ -848,48 +896,33 @@ public class StudentDashboardView extends BorderPane {
                 return;
             }
 
-            if (!networkMatches.isEmpty()) {
-                Label netCountLabel = new Label("Network Connections (" + networkMatches.size() + " matches by BFS traversal tier):");
-                netCountLabel.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink; -fx-font-size: 13px;");
-                resultsBox.getChildren().add(netCountLabel);
+            int totalFound = networkMatches.size() + campusMatches.size();
+            Label summaryLbl = new Label(totalFound + " compatible study partner" + (totalFound > 1 ? "s" : "")
+                    + " found  •  network connections first, then campus-wide suggestions");
+            summaryLbl.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink; -fx-font-size: 14px;");
+            resultsBox.getChildren().add(summaryLbl);
 
-                Map<String, List<MatchResult>> tiers = new LinkedHashMap<>();
-                for (MatchResult m : networkMatches) {
-                    tiers.computeIfAbsent(m.getDegreeLabel(), k -> new ArrayList<>()).add(m);
-                }
-                for (Map.Entry<String, List<MatchResult>> tier : tiers.entrySet()) {
-                    Label tierHeader = new Label(tier.getKey());
-                    tierHeader.getStyleClass().add("badge-degree");
-                    tierHeader.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
-                    resultsBox.getChildren().add(tierHeader);
-                    List<Node> tierCards = new ArrayList<>();
-                    for (MatchResult m : tier.getValue()) {
-                        tierCards.add(createMatchCard(m));
-                    }
-                    addPagedMatchCards(resultsBox, "tier:" + tier.getKey(), tierCards, 3, searchRef[0]);
-                }
-            } else {
+            if (networkMatches.isEmpty()) {
                 VBox infoBox = new VBox(6);
                 infoBox.getStyleClass().add("info-card");
-                Label infoLbl1 = new Label("No Extended Network Connections Found (Isolated Node)");
+                Label infoLbl1 = new Label("No extended network connections yet (isolated node)");
                 infoLbl1.setGraphic(SvgIcons.icon(SvgIcons.Glyph.INFO, 15, "svg-icon-accent"));
                 infoLbl1.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-accent;");
-                Label infoLbl2 = new Label("Connect with recommended campus classmates below to start expanding your graph.");
-                infoLbl2.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+                Label infoLbl2 = new Label("BFS found no partners through your links — connect with a recommended campus classmate below to start growing your graph.");
+                infoLbl2.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 13px;");
+                infoLbl2.setWrapText(true);
                 infoBox.getChildren().addAll(infoLbl1, infoLbl2);
                 resultsBox.getChildren().add(infoBox);
             }
 
-            if (!campusMatches.isEmpty()) {
-                Label campusCountLabel = new Label("Campus Peer Recommendations (" + campusMatches.size() + " potential partners by profile match):");
-                campusCountLabel.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink; -fx-font-size: 13px; -fx-padding: 10 0 0 0;");
-                resultsBox.getChildren().add(campusCountLabel);
-                List<Node> campusCards = new ArrayList<>();
-                for (MatchResult m : campusMatches) {
-                    campusCards.add(createMatchCard(m));
-                }
-                addPagedMatchCards(resultsBox, "campus", campusCards, 3, searchRef[0]);
+            List<Node> allCards = new ArrayList<>();
+            for (MatchResult m : networkMatches) {
+                allCards.add(createMatchCard(m));
             }
+            for (MatchResult m : campusMatches) {
+                allCards.add(createMatchCard(m));
+            }
+            addPagedMatchCards(resultsBox, "results", allCards, 6, searchRef[0]);
         };
         searchRef[0] = executeSearch;
 
@@ -897,7 +930,6 @@ public class StudentDashboardView extends BorderPane {
         subjectFilter.setOnAction(e -> executeSearch.run());
         sameSectionCheck.setOnAction(e -> executeSearch.run());
         groupSizeFilter.setOnAction(e -> executeSearch.run());
-        searchBtn.setOnAction(e -> executeSearch.run());
         executeSearch.run();
 
         mainBox.getChildren().addAll(header, filterCard, resultsBox);
@@ -905,57 +937,55 @@ public class StudentDashboardView extends BorderPane {
     }
 
     private VBox createMatchCard(MatchResult match) {
-        VBox card = new VBox(10);
+        VBox card = new VBox(9);
         card.getStyleClass().add("card");
+        card.setPadding(new Insets(14, 16, 14, 16));
 
-        HBox topRow = new HBox(12);
+        HBox topRow = new HBox(10);
         topRow.setAlignment(Pos.CENTER_LEFT);
 
         Label name = new Label(match.getStudent().getFullName());
-        name.setStyle("-fx-font-size: 15px; -fx-font-weight: 600; -fx-text-fill: -fx-ink;");
+        name.setStyle("-fx-font-size: 15.5px; -fx-font-weight: 700; -fx-text-fill: -fx-ink;");
 
         Label id = new Label("(" + match.getStudent().getStudentId() + ")");
-        id.setStyle("-fx-text-fill: -fx-ink-soft;");
+        id.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12.5px;");
 
-        Label degreeBadge = new Label(match.getDegreeLabel());
-        degreeBadge.getStyleClass().add("badge-degree");
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Label scoreBadge = new Label("Score: " + match.getCompatibilityScore() + " pts");
+        Label scoreBadge = new Label(match.getCompatibilityScore() + " pts");
         scoreBadge.getStyleClass().add("badge-score");
 
-        topRow.getChildren().addAll(name, id, degreeBadge, spacer, scoreBadge);
+        topRow.getChildren().addAll(name, id, topSpacer, scoreBadge);
+
+        FlowPane chipsRow = new FlowPane(8, 6);
+        chipsRow.setMaxWidth(Double.MAX_VALUE);
+
+        Label tierChip = new Label(shortDegreeLabel(match.getDegreeOfSeparation()));
+        tierChip.getStyleClass().addAll("result-meta-chip", "result-meta-chip-accent");
+        chipsRow.getChildren().add(tierChip);
 
         StudentProfile p = match.getStudent().getProfile();
-        HBox metaRow = new HBox(16);
-        Label courseLbl = new Label("Course: " + (p.getCourse() != null ? p.getCourse() : "N/A"));
-        courseLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
+        Label courseChip = new Label(p.getCourse() != null ? p.getCourse() : "No course");
+        courseChip.getStyleClass().addAll("result-meta-chip", "result-meta-chip-outline");
+        chipsRow.getChildren().add(courseChip);
 
-        Label secLbl = new Label("Section: " + (p.getSection() != null ? p.getSection() : "N/A") + (match.isSameSection() ? " (Classmate!)" : ""));
-        secLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: " + (match.isSameSection() ? "-fx-accent;" : "-fx-ink-soft;") + "-fx-font-weight: " + (match.isSameSection() ? "600;" : "400;"));
+        String sectionText = p.getSection() != null ? p.getSection() : "N/A";
+        Label secChip = new Label(sectionText + (match.isSameSection() ? "  •  Classmate" : ""));
+        secChip.getStyleClass().addAll("result-meta-chip",
+                match.isSameSection() ? "result-meta-chip-accent" : "result-meta-chip-outline");
+        chipsRow.getChildren().add(secChip);
 
-        Label sizeLbl = new Label("Group Size: " + (p.getGroupSizePreference() != null ? p.getGroupSizePreference() : "Flexible"));
-        sizeLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
-
-        metaRow.getChildren().addAll(courseLbl, secLbl, sizeLbl);
-
-        HBox sharedRow = new HBox(10);
-        sharedRow.setAlignment(Pos.CENTER_LEFT);
-
-        Label sharedTitle = new Label("Shared Subjects:");
-        sharedTitle.setStyle("-fx-font-weight: 600; -fx-font-size: 12px; -fx-text-fill: -fx-ink;");
-
-        FlowPane chips = new FlowPane(6, 6);
-        for (String sub : match.getCommonSubjects()) {
-            Label chip = new Label(sub);
-            chip.getStyleClass().add("chip-selected");
-            chip.setStyle("-fx-font-size: 11px; -fx-padding: 3 8;");
-            chips.getChildren().add(chip);
+        if (p.getGroupSizePreference() != null) {
+            Label sizeChip = new Label(p.getGroupSizePreference());
+            sizeChip.getStyleClass().addAll("result-meta-chip", "result-meta-chip-outline");
+            chipsRow.getChildren().add(sizeChip);
         }
-
-        sharedRow.getChildren().addAll(sharedTitle, chips);
+        for (String subject : match.getCommonSubjects()) {
+            Label subjectChip = new Label(subject);
+            subjectChip.getStyleClass().addAll("result-meta-chip", "result-meta-chip-outline");
+            chipsRow.getChildren().add(subjectChip);
+        }
 
         HBox actionRow = new HBox();
         actionRow.setAlignment(Pos.CENTER_RIGHT);
@@ -999,10 +1029,22 @@ public class StudentDashboardView extends BorderPane {
                 }
             });
         }
+
+        actionBtn.setStyle("-fx-font-size: 13px; -fx-padding: 7px 18px;");
         actionRow.getChildren().add(actionBtn);
 
-        card.getChildren().addAll(topRow, metaRow, sharedRow, actionRow);
+        card.getChildren().addAll(topRow, chipsRow, actionRow);
         return card;
+    }
+
+    private String shortDegreeLabel(int degree) {
+        return switch (degree) {
+            case 0 -> "Campus Peer";
+            case 1 -> "1st Degree";
+            case 2 -> "2nd Degree";
+            case 3 -> "3rd Degree";
+            default -> degree + "th Degree";
+        };
     }
 
     private void addPagedMatchCards(VBox container, String stateKey, List<Node> cards, int pageSize, Runnable refresh) {
@@ -1013,7 +1055,27 @@ public class StudentDashboardView extends BorderPane {
         int from = (page - 1) * pageSize;
         int to = Math.min(from + pageSize, cards.size());
         if (from < to) {
-            container.getChildren().addAll(cards.subList(from, to));
+            GridPane cardGrid = new GridPane();
+            cardGrid.setHgap(14);
+            cardGrid.setVgap(14);
+            cardGrid.setMaxWidth(Double.MAX_VALUE);
+
+            ColumnConstraints halfEven = new ColumnConstraints();
+            halfEven.setPercentWidth(50);
+            ColumnConstraints halfOdd = new ColumnConstraints();
+            halfOdd.setPercentWidth(50);
+            cardGrid.getColumnConstraints().addAll(halfEven, halfOdd);
+
+            int placed = 0;
+            for (int index = from; index < to; index++) {
+                Node card = cards.get(index);
+                if (card instanceof Region region) {
+                    region.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                }
+                cardGrid.add(card, placed % 2, placed / 2);
+                placed++;
+            }
+            container.getChildren().add(cardGrid);
         }
 
         if (totalPages > 1) {
@@ -1050,8 +1112,9 @@ public class StudentDashboardView extends BorderPane {
     private void showPathfinderScreen() {
         setBreadcrumb("Settings > Pathfinder (BFS)");
 
-        VBox mainBox = new VBox(18);
-        mainBox.setPadding(new Insets(20, 36, 30, 36));
+        VBox mainBox = new VBox(14);
+        mainBox.setPadding(new Insets(16, 32, 18, 32));
+        mainBox.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         Node header = buildSubScreenHeader(
                 "Pathfinder (Shortest Path BFS)",
@@ -1061,6 +1124,7 @@ public class StudentDashboardView extends BorderPane {
         // Selector Card
         VBox selectorCard = new VBox(14);
         selectorCard.getStyleClass().add("card");
+        selectorCard.setPadding(new Insets(16, 18, 14, 18));
 
         HBox pickers = new HBox(20);
         pickers.setAlignment(Pos.BOTTOM_LEFT);
@@ -1106,22 +1170,37 @@ public class StudentDashboardView extends BorderPane {
 
         Label hintLabel = new Label("Interactive Canvas: Click any node on the graph below to choose Source or Target.");
         hintLabel.setGraphic(SvgIcons.icon(SvgIcons.Glyph.LIGHTBULB, 14, "svg-icon-accent"));
-        hintLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-accent; -fx-font-weight: 500;");
+        hintLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-accent; -fx-font-weight: 600;");
+        hintLabel.setWrapText(true);
 
         selectorCard.getChildren().addAll(pickers, hintLabel);
 
-        // Results Card
-        VBox resultsCard = new VBox(14);
-        resultsCard.getStyleClass().add("card");
-        resultsCard.setVisible(false);
+        // Side-by-side results + canvas row fills the remaining page height,
+        // so the screen stays one fixed, non-scrolling view.
+        HBox contentRow = new HBox(14);
+        contentRow.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
-        // Interactive Canvas Card
+        VBox resultsCard = new VBox(12);
+        resultsCard.getStyleClass().add("card");
+        resultsCard.setPadding(new Insets(14, 16, 14, 16));
+        resultsCard.setPrefWidth(430);
+        resultsCard.setMinWidth(330);
+        resultsCard.setMaxWidth(Double.MAX_VALUE);
+        resultsCard.setVisible(false);
+        resultsCard.setManaged(false);
+
         VBox canvasCard = new VBox(10);
         canvasCard.getStyleClass().add("card");
+        canvasCard.setPadding(new Insets(14, 16, 14, 16));
         Label canvasTitle = new Label("Interactive Network Graph");
         canvasTitle.getStyleClass().add("card-title");
         GraphVisualizerCanvas canvas = new GraphVisualizerCanvas(networkService.getGraph());
+        canvas.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        VBox.setVgrow(canvas, Priority.ALWAYS);
         canvasCard.getChildren().addAll(canvasTitle, canvas);
+        contentRow.getChildren().addAll(resultsCard, canvasCard);
+        HBox.setHgrow(resultsCard, Priority.NEVER);
+        HBox.setHgrow(canvasCard, Priority.ALWAYS);
 
         canvas.setOnNodeClicked(clickedNode -> {
             StudentNode currentSrc = srcCombo.getValue();
@@ -1142,9 +1221,11 @@ public class StudentDashboardView extends BorderPane {
             renderBfsResult(resultsCard, src, tgt, result);
             canvas.setHighlightedPath(result.getPath());
             resultsCard.setVisible(true);
+            resultsCard.setManaged(true);
         });
 
-        mainBox.getChildren().addAll(header, selectorCard, resultsCard, canvasCard);
+        mainBox.getChildren().addAll(header, selectorCard, contentRow);
+        VBox.setVgrow(contentRow, Priority.ALWAYS);
         contentArea.getChildren().setAll(mainBox);
     }
 
@@ -1163,60 +1244,87 @@ public class StudentDashboardView extends BorderPane {
             return;
         }
 
-        HBox metrics = new HBox(14);
-        VBox pillSep = createMetricPill("Degrees of Separation", String.valueOf(result.getDegreesOfSeparation()), "-fx-accent");
-        VBox pillHops = createMetricPill("Path Length (Hops)", String.valueOf(result.getPath().size() - 1), "-fx-green");
-        VBox pillExplored = createMetricPill("Nodes Explored (BFS)", String.valueOf(result.getNodesExplored()), "-fx-ink-soft");
+        HBox metrics = new HBox(12);
+        VBox pillSep = createMetricPill("Degrees", String.valueOf(result.getDegreesOfSeparation()), "-fx-accent");
+        VBox pillHops = createMetricPill("Hops", String.valueOf(result.getPath().size() - 1), "-fx-green");
+        VBox pillExplored = createMetricPill("Explored", String.valueOf(result.getNodesExplored()), "-fx-ink-soft");
         for (VBox pill : new VBox[]{pillSep, pillHops, pillExplored}) {
             HBox.setHgrow(pill, Priority.ALWAYS);
             pill.setMaxWidth(Double.MAX_VALUE);
         }
         metrics.getChildren().addAll(pillSep, pillHops, pillExplored);
 
-        VBox chainBox = new VBox(8);
         Label chainTitle = new Label("Shortest Introduction Chain:");
         chainTitle.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink;");
 
-        HBox nodesRow = new HBox(8);
-        nodesRow.setAlignment(Pos.CENTER_LEFT);
+        VBox chainBox = new VBox(2);
+        chainBox.setMaxWidth(Double.MAX_VALUE);
 
         List<String> path = result.getPath();
         for (int i = 0; i < path.size(); i++) {
             String sid = path.get(i);
             StudentNode node = networkService.getGraph().getNode(sid);
-            String labelText = (node != null ? node.getFullName() : sid) + "\n(" + sid + ")";
+            boolean isStart = i == 0;
+            boolean isTarget = i == path.size() - 1;
 
-            Button nodePill = new Button(labelText);
-            if (i == 0) {
-                nodePill.getStyleClass().addAll("node-pill", "node-pill-source");
-            } else if (i == path.size() - 1) {
-                nodePill.getStyleClass().addAll("node-pill", "node-pill-target");
-            } else {
-                nodePill.getStyleClass().addAll("node-pill", "node-pill-mid");
+            HBox chainRow = new HBox(10);
+            chainRow.setAlignment(Pos.CENTER_LEFT);
+            chainRow.getStyleClass().add("chain-node-row");
+            if (isStart) {
+                chainRow.getStyleClass().add("chain-node-start");
+            } else if (isTarget) {
+                chainRow.getStyleClass().add("chain-node-target");
             }
 
-            nodesRow.getChildren().add(nodePill);
+            StackPane rankBadge = new StackPane();
+            rankBadge.getStyleClass().add("chain-node-rank");
+            rankBadge.setStyle("-fx-background-color:" + (isStart ? "rgba(96,165,250,0.22);"
+                    : isTarget ? "rgba(74,222,128,0.18);" : "rgba(255,255,255,0.08);"));
+            Label rankLbl = new Label(String.valueOf(i + 1));
+            rankLbl.getStyleClass().add("chain-node-rank-label");
+            rankLbl.setStyle("-fx-text-fill:" + (isStart ? "-fx-accent;" : isTarget ? "-fx-green;" : "-fx-ink-soft;"));
+            rankBadge.getChildren().add(rankLbl);
 
-            if (i < path.size() - 1) {
-                Label arrow = new Label("➔");
-                arrow.setStyle("-fx-font-size: 16px; -fx-text-fill: -fx-accent; -fx-font-weight: 700;");
-                nodesRow.getChildren().add(arrow);
+            VBox nameCol = new VBox(1);
+            Label nameLbl = new Label(node != null ? node.getFullName() : sid);
+            nameLbl.getStyleClass().add("chain-node-name");
+            Label idLbl = new Label("(" + sid + ")");
+            idLbl.getStyleClass().add("chain-node-id");
+            nameCol.getChildren().addAll(nameLbl, idLbl);
+
+            Region chainSpacer = new Region();
+            HBox.setHgrow(chainSpacer, Priority.ALWAYS);
+
+            Label roleLbl = new Label(isStart ? "You" : isTarget ? "Target" : "Hop " + i);
+            roleLbl.getStyleClass().add("chain-node-role");
+            roleLbl.setStyle("-fx-text-fill:" + (isStart ? "-fx-accent;" : isTarget ? "-fx-green;" : "-fx-ink-soft;"));
+
+            chainRow.getChildren().addAll(rankBadge, nameCol, chainSpacer, roleLbl);
+            chainBox.getChildren().add(chainRow);
+
+            if (!isTarget) {
+                HBox connector = new HBox();
+                connector.setAlignment(Pos.CENTER_LEFT);
+                connector.getChildren().add(SvgIcons.icon(SvgIcons.Glyph.CHEVRON_DOWN, 15, "svg-icon-accent"));
+                HBox.setMargin(connector, new Insets(2, 0, 2, 16));
+                chainBox.getChildren().add(connector);
             }
         }
 
         Label explanation = new Label("Algorithm Note: Standard BFS guarantees the minimum degree of separation in an unweighted graph with time complexity O(V + E).");
-        explanation.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft; -fx-font-style: italic;");
+        explanation.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft; -fx-font-style: italic;");
 
-        card.getChildren().addAll(resTitle, metrics, chainTitle, nodesRow, explanation);
+        card.getChildren().addAll(resTitle, metrics, chainTitle, chainBox, explanation);
     }
 
     private VBox createMetricPill(String title, String value, String colorStyle) {
         VBox box = new VBox(2);
         box.getStyleClass().add("metric-pill");
+        box.setAlignment(Pos.CENTER);
         Label v = new Label(value);
-        v.setStyle("-fx-font-size: 18px; -fx-font-weight: 700; -fx-text-fill: " + colorStyle + ";");
+        v.setStyle("-fx-font-size: 20px; -fx-font-weight: 700; -fx-text-fill: " + colorStyle + ";");
         Label t = new Label(title);
-        t.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft; -fx-font-weight: 500;");
+        t.setStyle("-fx-font-size: 12.5px; -fx-text-fill: -fx-ink-soft; -fx-font-weight: 500;");
         box.getChildren().addAll(v, t);
         return box;
     }
@@ -1228,7 +1336,7 @@ public class StudentDashboardView extends BorderPane {
         setBreadcrumb("Settings > My Connections");
 
         VBox mainBox = new VBox(18);
-        mainBox.setPadding(new Insets(20, 36, 30, 36));
+        mainBox.setPadding(new Insets(18, 36, 24, 36));
 
         Node header = buildSubScreenHeader(
                 "My Connections & Mutuals",
@@ -1267,7 +1375,7 @@ public class StudentDashboardView extends BorderPane {
 
                 Button acceptBtn = new Button("✓ Accept");
                 acceptBtn.getStyleClass().add("button-primary");
-                acceptBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
+                acceptBtn.setStyle("-fx-font-size: 13px; -fx-padding: 5px 12px;");
                 acceptBtn.setOnAction(e -> {
                     if (networkService.acceptConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
                         showConnectionsScreen();
@@ -1277,8 +1385,8 @@ public class StudentDashboardView extends BorderPane {
                 });
 
                 Button declineBtn = new Button("✕ Decline");
-                declineBtn.getStyleClass().add("button-secondary");
-                declineBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12; -fx-text-fill: -fx-danger;");
+                declineBtn.getStyleClass().add("button-ghost-danger");
+                declineBtn.setStyle("-fx-font-size: 13px; -fx-padding: 5px 12px;");
                 declineBtn.setOnAction(e -> {
                     if (networkService.declineConnectionRequest(c.getRequesterId(), c.getReceiverId())) {
                         showConnectionsScreen();
@@ -1300,16 +1408,35 @@ public class StudentDashboardView extends BorderPane {
             outgoingIds.add(c.getReceiverId());
         }
 
-        if (!outgoing.isEmpty()) {
-            VBox outCard = new VBox(12);
-            outCard.getStyleClass().add("card");
-            Label outTitle = new Label("Outgoing Requests (" + outgoing.size() + ")");
-            outTitle.getStyleClass().add("card-title");
-            outTitle.setStyle("-fx-text-fill: -fx-amber;");
-            outTitle.setGraphic(SvgIcons.icon(SvgIcons.Glyph.HOURGLASS, 16, "svg-icon-warn"));
-            outCard.getChildren().add(outTitle);
+        VBox outCard = new VBox(12);
+        outCard.getStyleClass().add("card");
+        Label outTitle = new Label("Outgoing Requests (" + outgoing.size() + ")");
+        outTitle.getStyleClass().add("card-title");
+        outTitle.setStyle("-fx-text-fill: -fx-amber;");
+        outTitle.setGraphic(SvgIcons.icon(SvgIcons.Glyph.HOURGLASS, 16, "svg-icon-warn"));
+        outCard.getChildren().add(outTitle);
 
-            for (com.networkfinder.model.Connection c : outgoing) {
+        // Fixed-height rows area: the panel keeps the size of 4 rows even when
+        // the current page shows fewer (or none), so the layout never jumps.
+        VBox outRows = new VBox(12);
+        outRows.setMinHeight(216);
+        outCard.getChildren().add(outRows);
+
+        if (outgoing.isEmpty()) {
+            Label outEmpty = new Label("No outgoing requests right now. Send a connection request using the panel below.");
+            outEmpty.getStyleClass().add("helper-text");
+            outEmpty.setWrapText(true);
+            outRows.getChildren().add(outEmpty);
+        } else {
+            int outgoingPageSize = 4;
+            int outgoingTotalPages = (outgoing.size() + outgoingPageSize - 1) / outgoingPageSize;
+            if (outgoingPage > outgoingTotalPages) outgoingPage = outgoingTotalPages;
+            if (outgoingPage < 1) outgoingPage = 1;
+            int outFrom = (outgoingPage - 1) * outgoingPageSize;
+            int outTo = Math.min(outgoing.size(), outFrom + outgoingPageSize);
+
+            for (int i = outFrom; i < outTo; i++) {
+                com.networkfinder.model.Connection c = outgoing.get(i);
                 StudentNode sNode = networkService.getGraph().getNode(c.getReceiverId());
                 HBox outRow = new HBox(12);
                 outRow.setAlignment(Pos.CENTER_LEFT);
@@ -1322,14 +1449,14 @@ public class StudentDashboardView extends BorderPane {
                 sSec.setStyle("-fx-text-fill: -fx-ink-soft; -fx-min-width: 120;");
 
                 Label statusLbl = new Label("Awaiting student confirmation");
-                statusLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-accent; -fx-font-style: italic;");
+                statusLbl.setStyle("-fx-font-size: 13.5px; -fx-text-fill: -fx-accent; -fx-font-weight: 700;");
 
                 Region rSpacer = new Region();
                 HBox.setHgrow(rSpacer, Priority.ALWAYS);
 
                 Button cancelBtn = new Button("✕ Cancel");
-                cancelBtn.getStyleClass().add("button-secondary");
-                cancelBtn.setStyle("-fx-font-size: 11px; -fx-padding: 5 12;");
+                cancelBtn.getStyleClass().add("button-ghost-danger");
+                cancelBtn.setStyle("-fx-font-size: 13px; -fx-padding: 5px 12px;");
                 cancelBtn.setOnAction(e -> {
                     if (networkService.declineConnectionRequest(currentUser.getStudentId(), c.getReceiverId())) {
                         showConnectionsScreen();
@@ -1339,10 +1466,39 @@ public class StudentDashboardView extends BorderPane {
                 });
 
                 outRow.getChildren().addAll(sName, sSec, statusLbl, rSpacer, cancelBtn);
-                outCard.getChildren().add(outRow);
+                outRows.getChildren().add(outRow);
             }
-            mainBox.getChildren().add(outCard);
+
+            if (outgoingTotalPages > 1) {
+                HBox outPager = new HBox(12);
+                outPager.getStyleClass().add("pagination-container");
+                outPager.setAlignment(Pos.CENTER);
+
+                Button outPrev = new Button("← Previous");
+                outPrev.getStyleClass().add("pagination-btn");
+                Label outInfo = new Label("Page " + outgoingPage + " of " + outgoingTotalPages
+                        + " (" + outgoing.size() + " total)");
+                outInfo.getStyleClass().add("pagination-info");
+                Button outNext = new Button("Next →");
+                outNext.getStyleClass().add("pagination-btn");
+
+                outPrev.setDisable(outgoingPage <= 1);
+                outNext.setDisable(outgoingPage >= outgoingTotalPages);
+                outPrev.setOnAction(e -> {
+                    outgoingPage--;
+                    showConnectionsScreen();
+                });
+                outNext.setOnAction(e -> {
+                    outgoingPage++;
+                    showConnectionsScreen();
+                });
+
+                outPager.getChildren().addAll(outPrev, outInfo, outNext);
+                outCard.getChildren().add(outPager);
+            }
         }
+
+        mainBox.getChildren().add(outCard);
 
         // 3. Connect with Classmates Card
         VBox connectCard = new VBox(12);
@@ -1398,7 +1554,7 @@ public class StudentDashboardView extends BorderPane {
 
         Label mDesc = new Label("Pick any student on campus, then click Find Mutuals — we list the direct connections you both share. "
                 + "Example: if you and Maria both know Ana, Ana shows up as a mutual friend and can introduce you.");
-        mDesc.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+        mDesc.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 13px;");
         mDesc.setWrapText(true);
 
         HBox mInputRow = new HBox(12);
@@ -1485,8 +1641,8 @@ public class StudentDashboardView extends BorderPane {
                 HBox.setHgrow(sp, Priority.ALWAYS);
 
                 Button disconnectBtn = new Button("Disconnect");
-                disconnectBtn.getStyleClass().add("button-secondary");
-                disconnectBtn.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-danger;");
+                disconnectBtn.getStyleClass().add("button-ghost-danger");
+                disconnectBtn.setStyle("-fx-font-size: 13px; -fx-padding: 5px 12px;");
                 disconnectBtn.setOnAction(e -> {
                     if (networkService.removeConnection(currentUser.getStudentId(), nId)) {
                         showConnectionsScreen();
@@ -1510,8 +1666,9 @@ public class StudentDashboardView extends BorderPane {
     private void showAnalyticsScreen() {
         setBreadcrumb("Settings > Network Graph & Hubs");
 
-        VBox mainBox = new VBox(18);
-        mainBox.setPadding(new Insets(20, 36, 30, 36));
+        VBox mainBox = new VBox(14);
+        mainBox.setPadding(new Insets(16, 32, 18, 32));
+        mainBox.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         Node header = buildSubScreenHeader(
                 "Network Graph Analytics & Hubs",
@@ -1529,14 +1686,24 @@ public class StudentDashboardView extends BorderPane {
         }
         stats.getChildren().addAll(pillV, pillE, pillDeg, pillCent);
 
-        // Top Coordinators
+        // Hubs card sits beside the graph so the whole page fits the fixed
+        // viewport height without vertical scrolling.
+        HBox contentRow = new HBox(14);
+        contentRow.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
         VBox hubsCard = new VBox(12);
         hubsCard.getStyleClass().add("card");
-        Label hubsTitle = new Label("Top Study Group Coordinators (Highest Degree Centrality)");
+        hubsCard.setPadding(new Insets(14, 16, 14, 16));
+        hubsCard.setPrefWidth(430);
+        hubsCard.setMinWidth(340);
+        hubsCard.setMaxWidth(Double.MAX_VALUE);
+        Label hubsTitle = new Label("Top Study Group Coordinators");
         hubsTitle.getStyleClass().add("card-title");
+        Label hubsSub = new Label("Highest degree centrality in the campus network.");
+        hubsSub.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft;");
 
         List<StudentNode> topNodes = networkService.getTopCoordinators(5);
-        VBox topList = new VBox(8);
+        VBox topList = new VBox(6);
         for (int i = 0; i < topNodes.size(); i++) {
             StudentNode node = topNodes.get(i);
             int deg = networkService.getGraph().getDegree(node.getStudentId());
@@ -1544,40 +1711,46 @@ public class StudentDashboardView extends BorderPane {
 
             HBox row = new HBox(12);
             row.setAlignment(Pos.CENTER_LEFT);
-            row.setStyle("-fx-border-color: -fx-border; -fx-border-width: 0 0 1 0; -fx-padding: 8 0;");
+            row.setMaxWidth(Double.MAX_VALUE);
+            row.setStyle("-fx-background-color: rgba(255, 255, 255, 0.04); -fx-background-radius: 6; -fx-padding: 10 12;");
 
             Label rank = new Label("#" + (i + 1));
-            rank.setStyle("-fx-font-weight: 700; -fx-text-fill: -fx-accent; -fx-min-width: 30;");
+            rank.setStyle("-fx-font-weight: 700; -fx-text-fill: -fx-accent; -fx-min-width: 32;");
 
             Label name = new Label(node.getFullName() + " (" + node.getStudentId() + ")");
             name.setStyle("-fx-font-weight: 600; -fx-text-fill: -fx-ink;");
             HBox.setHgrow(name, Priority.ALWAYS);
             name.setMaxWidth(Double.MAX_VALUE);
+            name.setTextOverrun(OverrunStyle.ELLIPSIS);
 
-            Label degLbl = new Label(deg + " connection(s)");
-            degLbl.setStyle("-fx-text-fill: -fx-accent; -fx-font-weight: 500; -fx-min-width: 140;");
+            Label degLbl = new Label(deg + " links");
+            degLbl.setStyle("-fx-text-fill: -fx-accent; -fx-font-weight: 600; -fx-font-size: 13px;");
 
-            Label centLbl = new Label("Centrality: " + String.format("%.3f", cent));
-            centLbl.setStyle("-fx-text-fill: -fx-ink-soft;");
-
-            row.getChildren().addAll(rank, name, degLbl, centLbl);
+            row.getChildren().addAll(rank, name, degLbl);
             topList.getChildren().add(row);
         }
 
-        hubsCard.getChildren().addAll(hubsTitle, topList);
+        hubsCard.getChildren().addAll(hubsTitle, hubsSub, topList);
 
-        // Interactive 2D Graph Visualizer Card
         VBox canvasCard = new VBox(10);
         canvasCard.getStyleClass().add("card");
+        canvasCard.setPadding(new Insets(14, 16, 14, 16));
         Label canvasTitle = new Label("Interactive 2D Graph Visualizer");
         canvasTitle.getStyleClass().add("card-title");
         Label canvasSub = new Label("Visual representation of student vertices and established edges.");
-        canvasSub.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
+        canvasSub.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft;");
 
         GraphVisualizerCanvas canvas = new GraphVisualizerCanvas(networkService.getGraph());
+        canvas.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        VBox.setVgrow(canvas, Priority.ALWAYS);
         canvasCard.getChildren().addAll(canvasTitle, canvasSub, canvas);
 
-        mainBox.getChildren().addAll(header, stats, hubsCard, canvasCard);
+        contentRow.getChildren().addAll(hubsCard, canvasCard);
+        HBox.setHgrow(hubsCard, Priority.NEVER);
+        HBox.setHgrow(canvasCard, Priority.ALWAYS);
+
+        mainBox.getChildren().addAll(header, stats, contentRow);
+        VBox.setVgrow(contentRow, Priority.ALWAYS);
         contentArea.getChildren().setAll(mainBox);
     }
 }

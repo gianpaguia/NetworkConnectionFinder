@@ -20,6 +20,8 @@ public class PasswordRevealField extends StackPane {
     private final TextField plainField = new TextField();
     private final Button eyeButton = new Button();
 
+    @SuppressWarnings("this-escape")
+
     public PasswordRevealField(String promptText) {
         maskedField.setPromptText(promptText);
         plainField.setPromptText(promptText);

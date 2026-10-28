@@ -21,11 +21,13 @@ public class GraphVisualizerCanvas extends Pane {
     private List<String> highlightedPath = Collections.emptyList();
     private java.util.function.Consumer<StudentNode> onNodeClicked;
 
+    @SuppressWarnings("this-escape")
+
     public GraphVisualizerCanvas(Graph graph) {
         this.graph = graph;
         setStyle("-fx-background-color: rgba(26, 26, 34, 0.80); -fx-border-color: rgba(255, 255, 255, 0.08); -fx-border-radius: 8; -fx-background-radius: 8;");
         setPrefSize(700, 480);
-        setMinHeight(420);
+        setMinHeight(260);
 
         widthProperty().addListener((obs, old, val) -> redraw());
         heightProperty().addListener((obs, old, val) -> redraw());

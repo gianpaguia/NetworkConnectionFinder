@@ -26,6 +26,8 @@ public class GraphConstellationCanvas extends Pane {
     private final List<int[]> edges = new ArrayList<>();
     private final int[] pathIndices = new int[3];
 
+    @SuppressWarnings("this-escape")
+
     public GraphConstellationCanvas() {
         getChildren().add(canvas);
         widthProperty().addListener((obs, old, val) -> redraw());

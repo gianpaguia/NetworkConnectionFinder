@@ -39,6 +39,8 @@ public class ProfileWizardView extends StackPane {
     private final HBox progressIndicator = new HBox(4);
     private VBox sidePanelContainer;
 
+    @SuppressWarnings("this-escape")
+
     public ProfileWizardView(User user) {
         this.user = user;
         setAlignment(Pos.CENTER);
@@ -107,7 +109,7 @@ public class ProfileWizardView extends StackPane {
 
             Circle circle = new Circle(13);
             Label num = new Label(String.valueOf(i));
-            num.setStyle("-fx-font-size: 11px; -fx-font-weight: 700;");
+            num.setStyle("-fx-font-size: 13px; -fx-font-weight: 800;");
 
             if (i < currentStep) {
                 circle.setFill(Color.web("#107C41"));
@@ -284,8 +286,7 @@ public class ProfileWizardView extends StackPane {
                 "Bachelor of Science in Information Technology",
                 "Bachelor of Science in Computer Science",
                 "Bachelor of Science in Information Systems",
-                "Bachelor of Science in Business Administration",
-                "Other"
+                "Bachelor of Science in Business Administration"
         );
         courseCombo.setValue(selectedCourse);
         courseCombo.setMaxWidth(Double.MAX_VALUE);

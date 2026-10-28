@@ -28,6 +28,8 @@ public class RegisterView extends StackPane {
     private Label uploadErrorLabel;
     private Label genericErrorLabel;
 
+    @SuppressWarnings("this-escape")
+
     public RegisterView() {
         setAlignment(Pos.CENTER);
         getStyleClass().add("fluent-root-pane");
@@ -44,13 +46,14 @@ public class RegisterView extends StackPane {
 
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         HBox.setHgrow(scrollPane, Priority.ALWAYS);
 
         VBox container = new VBox(16);
         container.setAlignment(Pos.CENTER_LEFT);
-        container.setMaxWidth(560);
-        container.setPadding(new Insets(30, 24, 30, 24));
+        container.setMaxWidth(600);
+        container.setPadding(new Insets(32, 24, 32, 24));
 
         VBox titleBox = new VBox(4);
         Label heading = new Label("Create your account");
@@ -77,7 +80,7 @@ public class RegisterView extends StackPane {
         Label firstNameLabel = new Label("First Name");
         firstNameLabel.getStyleClass().add("field-label");
         TextField firstNameField = new TextField();
-        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setPromptText("e.g. Juan (3+ letters, letters only)");
         firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
         firstNameErrorLabel = fieldError();
         firstNameBox.getChildren().addAll(firstNameLabel, firstNameField, firstNameErrorLabel);
@@ -86,7 +89,7 @@ public class RegisterView extends StackPane {
         Label surnameLabel = new Label("Surname");
         surnameLabel.getStyleClass().add("field-label");
         TextField surnameField = new TextField();
-        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setPromptText("e.g. Dela Cruz (3+ letters, letters only)");
         surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
         surnameErrorLabel = fieldError();
         surnameBox.getChildren().addAll(surnameLabel, surnameField, surnameErrorLabel);
@@ -286,6 +289,7 @@ public class RegisterView extends StackPane {
 
         StackPane centeredWrap = new StackPane(container);
         centeredWrap.setAlignment(Pos.CENTER);
+        centeredWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         scrollPane.setContent(centeredWrap);
 

@@ -10,6 +10,8 @@ import javafx.scene.shape.Circle;
 
 public class RegistrationSubmittedView extends StackPane {
 
+    @SuppressWarnings("this-escape")
+
     public RegistrationSubmittedView(User user) {
         setAlignment(Pos.CENTER);
         getStyleClass().add("fluent-root-pane");

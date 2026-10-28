@@ -16,6 +16,8 @@ public class LoginView extends StackPane {
     private final AuthService authService = new AuthService();
     private final ProfileDao profileDao = new ProfileDao();
 
+    @SuppressWarnings("this-escape")
+
     public LoginView() {
         setAlignment(Pos.CENTER);
         getStyleClass().add("fluent-root-pane");

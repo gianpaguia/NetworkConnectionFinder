@@ -11,6 +11,8 @@ import javafx.scene.text.Text;
 public class AdminLoginView extends StackPane {
     private final AuthService authService = new AuthService();
 
+    @SuppressWarnings("this-escape")
+
     public AdminLoginView() {
         setAlignment(Pos.CENTER);
         getStyleClass().add("fluent-root-pane");

@@ -12,8 +12,8 @@ public class ScreenNavigator {
 
     public static void init(Stage stage) {
         primaryStage = stage;
-        stage.setMinWidth(960);
-        stage.setMinHeight(640);
+        stage.setMinWidth(1120);
+        stage.setMinHeight(680);
     }
 
     public static Stage getPrimaryStage() {
@@ -30,7 +30,7 @@ public class ScreenNavigator {
 
     public static void setRoot(Parent root, String title) {
         if (primaryStage.getScene() == null) {
-            Scene scene = new Scene(root, 1020, 720);
+            Scene scene = new Scene(root, 1280, 780);
             scene.getStylesheets().add(ScreenNavigator.class.getResource("/css/styles.css").toExternalForm());
             primaryStage.setScene(scene);
         } else {

@@ -11,6 +11,8 @@ import javafx.scene.layout.*;
 
 public class ProfileCompleteView extends StackPane {
 
+    @SuppressWarnings("this-escape")
+
     public ProfileCompleteView(User user, StudentProfile profile) {
         setAlignment(Pos.CENTER);
         getStyleClass().add("fluent-root-pane");

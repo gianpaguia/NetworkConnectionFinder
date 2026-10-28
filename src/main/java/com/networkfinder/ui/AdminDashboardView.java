@@ -39,18 +39,18 @@ public class AdminDashboardView extends BorderPane {
     private String verificationSearch = "";
 
     private int accountsPage = 1;
-    private int accountsPageSize = 22;
+    private int accountsPageSize = 16;
     private String accountsSearch = "";
 
     private int archivePage = 1;
-    private int archivePageSize = 22;
+    private int archivePageSize = 16;
     private String archiveSearch = "";
     private boolean verificationSortNewest = false;
     private boolean accountsSortNewest = false;
     private boolean archiveSortNewest = false;
 
     private int connPage = 1;
-    private int connPageSize = 11;
+    private int connPageSize = 10;
     private String connSearch = "";
 
     private int adjPage = 1;
@@ -71,6 +71,8 @@ public class AdminDashboardView extends BorderPane {
             idVerifNavBtn.setText(verificationNavText());
         }
     }
+
+    @SuppressWarnings("this-escape")
 
     public AdminDashboardView() {
         getStyleClass().add("fluent-root-pane");
@@ -127,7 +129,7 @@ public class AdminDashboardView extends BorderPane {
         HBox content = new HBox(6);
         content.setAlignment(Pos.CENTER);
 
-        Node bell = SvgIcons.icon(SvgIcons.Glyph.BELL, 16, pendingCount > 0 ? "svg-icon-warn" : "svg-icon");
+        Node bell = SvgIcons.icon(SvgIcons.Glyph.BELL, 17, pendingCount > 0 ? "svg-icon-warn" : "svg-icon");
         content.getChildren().add(bell);
 
         if (pendingCount > 0) {
@@ -150,59 +152,65 @@ public class AdminDashboardView extends BorderPane {
         UiDialogs.styleDialogPane(dialog.getDialogPane());
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        VBox box = new VBox(12);
-        box.setPrefWidth(420);
-        box.setPadding(new Insets(10, 0, 10, 0));
+        VBox box = new VBox(14);
+        box.setPrefWidth(520);
+        box.setPadding(new Insets(8, 2, 10, 2));
 
         if (pendingList.isEmpty()) {
-            VBox emptyCard = new VBox(8);
+            VBox emptyCard = new VBox(10);
             emptyCard.setAlignment(Pos.CENTER);
-            emptyCard.setPadding(new Insets(20));
-            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 28, "svg-icon-success");
+            emptyCard.setPadding(new Insets(26, 20, 26, 20));
+            Node checkIcon = SvgIcons.icon(SvgIcons.Glyph.CHECK, 34, "svg-icon-success");
             Label emptyLbl = new Label("All caught up!");
-            emptyLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: 700; -fx-text-fill: -fx-ink;");
+            emptyLbl.setStyle("-fx-font-size: 17px; -fx-font-weight: 800; -fx-text-fill: -fx-ink;");
             Label subLbl = new Label("There are no pending student verification requests.");
-            subLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px;");
+            subLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 14px;");
             emptyCard.getChildren().addAll(checkIcon, emptyLbl, subLbl);
             box.getChildren().add(emptyCard);
         } else {
             Label header = new Label(pendingList.size() + " Pending ID Verification Request" + (pendingList.size() > 1 ? "s" : ""));
-            header.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-amber;");
+            header.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: -fx-amber;");
             box.getChildren().add(header);
 
             for (User u : pendingList) {
-                HBox item = new HBox(12);
+                HBox item = new HBox(14);
                 item.getStyleClass().add("notification-item");
                 item.setAlignment(Pos.CENTER_LEFT);
 
-                Node icon = SvgIcons.icon(SvgIcons.Glyph.CLIPBOARD_LIST, 16, "svg-icon-warn");
-                VBox textCol = new VBox(2);
-                Label name = new Label(u.getFullName() + " (" + u.getStudentId() + ")");
-                name.setStyle("-fx-font-weight: 600; -fx-font-size: 13px; -fx-text-fill: -fx-ink;");
+                StackPane iconBox = new StackPane();
+                iconBox.getStyleClass().add("fluent-status-icon");
+                iconBox.setPadding(new Insets(9));
+                iconBox.setStyle("-fx-background-color: -fx-amber-tint; -fx-background-radius: 10px; -fx-border-color: rgba(245, 158, 11, 0.35); -fx-border-radius: 10px;");
+                iconBox.getChildren().add(SvgIcons.icon(SvgIcons.Glyph.CLIPBOARD_LIST, 20, "svg-icon-warn"));
+
+                VBox textCol = new VBox(3);
+                Label name = new Label(u.getFullName() + "  (" + u.getStudentId() + ")");
+                name.setStyle("-fx-font-weight: 700; -fx-font-size: 15px; -fx-text-fill: -fx-ink;");
                 Label sub = new Label("Submitted an ID card verification request");
-                sub.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft;");
+                sub.setStyle("-fx-font-size: 13px; -fx-text-fill: -fx-ink-soft;");
                 textCol.getChildren().addAll(name, sub);
                 HBox.setHgrow(textCol, Priority.ALWAYS);
 
                 Button reviewBtn = new Button("Review");
                 reviewBtn.getStyleClass().add("button-primary");
-                reviewBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                reviewBtn.setStyle("-fx-font-size: 13px; -fx-padding: 7px 18px;");
                 reviewBtn.setOnAction(ev -> {
                     dialog.close();
                     showVerificationReviewScreen(u);
                 });
 
-                item.getChildren().addAll(icon, textCol, reviewBtn);
+                item.getChildren().addAll(iconBox, textCol, reviewBtn);
                 box.getChildren().add(item);
             }
         }
 
-        VBox sysCard = new VBox(4);
+        VBox sysCard = new VBox(5);
         sysCard.getStyleClass().add("info-card");
+        sysCard.setPadding(new Insets(14, 16, 14, 16));
         Label sysTitle = new Label("System Network Status");
-        sysTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: 700; -fx-text-fill: -fx-accent;");
+        sysTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: 800; -fx-text-fill: -fx-accent;");
         Label sysDesc = new Label("Vertices: " + networkService.getGraph().getVertexCount() + " students  |  Edges: " + networkService.getGraph().getEdgeCount() + " active connections.");
-        sysDesc.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft;");
+        sysDesc.setStyle("-fx-font-size: 13.5px; -fx-text-fill: -fx-ink-soft;");
         sysCard.getChildren().addAll(sysTitle, sysDesc);
         box.getChildren().add(sysCard);
 
@@ -219,7 +227,7 @@ public class AdminDashboardView extends BorderPane {
         title.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 
         Label adminBadge = new Label("ADMIN PANEL");
-        adminBadge.setStyle("-fx-background-color: -fx-amber; -fx-text-fill: #16161C; -fx-font-size: 10px; -fx-font-weight: 800; -fx-padding: 4 12; -fx-background-radius: 10;");
+        adminBadge.setStyle("-fx-background-color: -fx-amber; -fx-text-fill: #16161C; -fx-font-size: 11px; -fx-font-weight: 800; -fx-padding: 5 14; -fx-background-radius: 10;");
 
         Region brandAccent = new Region();
         brandAccent.setPrefSize(56, 3);
@@ -270,7 +278,11 @@ public class AdminDashboardView extends BorderPane {
 
         Button logoutBtn = createNavButton("Logout", false, SvgIcons.Glyph.LOG_OUT);
         logoutBtn.setStyle("-fx-text-fill: -fx-danger;");
-        logoutBtn.setOnAction(e -> ScreenNavigator.showStudentLogin());
+        logoutBtn.setOnAction(e -> {
+            if (UiDialogs.confirmSignOut()) {
+                ScreenNavigator.showStudentLogin();
+            }
+        });
 
         VBox navBox = new VBox(8, userMgmtLabel, idVerifBtn, accountsBtn, archiveBtn, networkLabel, netOverviewBtn, connManagerBtn);
         VBox logoutBox = new VBox(logoutBtn);
@@ -290,9 +302,9 @@ public class AdminDashboardView extends BorderPane {
         Button btn = new Button(text);
         if (glyph != null) {
             if (glyph == SvgIcons.Glyph.LOG_OUT) {
-                btn.setGraphic(SvgIcons.icon(glyph, 15, "svg-icon-danger"));
+                btn.setGraphic(SvgIcons.icon(glyph, 17, "svg-icon-danger"));
             } else {
-                btn.setGraphic(SvgIcons.icon(glyph, 15));
+                btn.setGraphic(SvgIcons.icon(glyph, 17));
             }
         }
         if (active) {
@@ -361,8 +373,8 @@ public class AdminDashboardView extends BorderPane {
             Button newestBtn = new Button("↓ Newest first");
             oldestBtn.getStyleClass().add("button-secondary");
             newestBtn.getStyleClass().add("button-secondary");
-            oldestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
-            newestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+            oldestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
+            newestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
             applySortSelection(oldestBtn, newestBtn, verificationSortNewest);
 
             filterBar.getChildren().addAll(searchField, oldestBtn, newestBtn, totalBadge);
@@ -407,10 +419,8 @@ public class AdminDashboardView extends BorderPane {
 
             TableColumn<User, String> submittedCol = new TableColumn<>("Submitted");
             submittedCol.setCellValueFactory(data -> new SimpleStringProperty(formatTimestamp(data.getValue().getCreatedAt())));
-            submittedCol.setMinWidth(150);
 
             TableColumn<User, Void> actionCol = new TableColumn<>("Action");
-            actionCol.setMinWidth(90);
             actionCol.setCellFactory(col -> new TableCell<>() {
                 private final Button viewBtn = new Button("View");
                 {
@@ -425,13 +435,24 @@ public class AdminDashboardView extends BorderPane {
                 @Override
                 protected void updateItem(Void item, boolean empty) {
                     super.updateItem(item, empty);
+                    setAlignment(Pos.CENTER);
                     setGraphic(empty ? null : viewBtn);
                 }
             });
 
+            // Fixed structural widths: pinned columns never move, flexible
+            // ones share the remaining width proportionally.
+            pinColumn(idCol, 112);
+            flexColumn(nameCol, 160, 210);
+            flexColumn(courseCol, 110, 150);
+            pinColumn(statusCol, 150);
+            flexColumn(submittedCol, 150, 175);
+            pinColumn(actionCol, 104);
+
             table.getColumns().addAll(List.of(idCol, nameCol, courseCol, statusCol, submittedCol, actionCol));
             table.getColumns().forEach(col -> col.setSortable(false));
             lockColumnOrder(table);
+            table.setPlaceholder(new Label("No pending ID verification requests across the entire network."));
 
             // Pagination Controls Bar
             HBox paginationBar = new HBox(12);
@@ -715,8 +736,8 @@ public class AdminDashboardView extends BorderPane {
         Button newestBtn = new Button("↓ Newest first");
         oldestBtn.getStyleClass().add("button-secondary");
         newestBtn.getStyleClass().add("button-secondary");
-        oldestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
-        newestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+        oldestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
+        newestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
         applySortSelection(oldestBtn, newestBtn, accountsSortNewest);
 
         searchRow.getChildren().addAll(searchField, oldestBtn, newestBtn, countBadge);
@@ -756,7 +777,9 @@ public class AdminDashboardView extends BorderPane {
                     setGraphic(null);
                 } else if ("APPROVED".equals(item)) {
                     Label b = new Label("✓ Approved");
-                    b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                    b.setGraphic(new Circle(3.5));
+                    b.setGraphicTextGap(6);
+                    b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 12.5px;");
                     setGraphic(b);
                 } else if ("PENDING".equals(item)) {
                     Label b = new Label("Pending");
@@ -765,7 +788,7 @@ public class AdminDashboardView extends BorderPane {
                     setGraphic(b);
                 } else {
                     Label b = new Label("✕ " + item);
-                    b.setStyle("-fx-background-color: -fx-danger-tint; -fx-text-fill: -fx-danger; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                    b.setStyle("-fx-background-color: -fx-danger-tint; -fx-text-fill: -fx-danger; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 12.5px;");
                     setGraphic(b);
                 }
             }
@@ -779,10 +802,8 @@ public class AdminDashboardView extends BorderPane {
 
         TableColumn<User, String> registeredCol = new TableColumn<>("Registered");
         registeredCol.setCellValueFactory(data -> new SimpleStringProperty(formatTimestamp(data.getValue().getCreatedAt())));
-        registeredCol.setMinWidth(150);
 
         TableColumn<User, Void> actionCol = new TableColumn<>("Actions");
-        actionCol.setMinWidth(240);
         actionCol.setCellFactory(col -> new TableCell<>() {
             private final Button editBtn = new Button("Edit");
             private final Button approveBtn = new Button("Approve");
@@ -793,28 +814,28 @@ public class AdminDashboardView extends BorderPane {
             {
                 btnBox.setAlignment(Pos.CENTER);
                 editBtn.getStyleClass().add("button-secondary");
-                editBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                editBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                 editBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     showEditStudentDialog(u);
                 });
 
                 approveBtn.getStyleClass().add("button-primary");
-                approveBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                approveBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                 approveBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     confirmApproveFromAccounts(u);
                 });
 
                 resetBtn.getStyleClass().add("button-secondary");
-                resetBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                resetBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                 resetBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     showResetPasswordDialog(u);
                 });
 
-                delBtn.getStyleClass().add("button-secondary");
-                delBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10; -fx-text-fill: -fx-danger;");
+                delBtn.getStyleClass().add("button-ghost-danger");
+                delBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                 delBtn.setOnAction(e -> {
                     User u = getTableView().getItems().get(getIndex());
                     confirmDeleteStudent(u);
@@ -824,13 +845,14 @@ public class AdminDashboardView extends BorderPane {
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
                 if (empty) {
                     setGraphic(null);
                 } else {
                     User u = getTableView().getItems().get(getIndex());
                     if (u.getRole() == com.networkfinder.model.Role.ADMIN) {
                         Label admLbl = new Label("Admin");
-                        admLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 11px; -fx-font-style: italic;");
+                        admLbl.setStyle("-fx-text-fill: -fx-ink-soft; -fx-font-size: 12px; -fx-font-style: italic;");
                         setGraphic(admLbl);
                     } else {
                         boolean needsApproval = u.getVerificationStatus() != com.networkfinder.model.VerificationStatus.APPROVED;
@@ -842,9 +864,20 @@ public class AdminDashboardView extends BorderPane {
             }
         });
 
+        // Fixed structural widths: pinned columns never move, flexible ones
+        // share the remaining width proportionally (no more crushed columns).
+        pinColumn(idCol, 112);
+        flexColumn(nameCol, 150, 195);
+        flexColumn(courseCol, 110, 150);
+        flexColumn(secCol, 85, 105);
+        pinColumn(statusCol, 150);
+        flexColumn(registeredCol, 125, 155);
+        flexColumn(actionCol, 268, 292);
+
         table.getColumns().addAll(List.of(idCol, nameCol, courseCol, secCol, statusCol, registeredCol, actionCol));
         table.getColumns().forEach(col -> col.setSortable(false));
         lockColumnOrder(table);
+        table.setPlaceholder(new Label("No student accounts found. Add a new student or refine the search."));
 
         // Pagination Bar
         HBox paginationBar = new HBox(12);
@@ -955,7 +988,7 @@ public class AdminDashboardView extends BorderPane {
         idField.setTextFormatter(TextFieldFilters.studentIdFilter());
 
         TextField firstNameField = new TextField();
-        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setPromptText("e.g. Juan (3+ letters, letters only)");
         firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField middleField = new TextField();
@@ -963,7 +996,7 @@ public class AdminDashboardView extends BorderPane {
         middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         TextField surnameField = new TextField();
-        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setPromptText("e.g. Dela Cruz (3+ letters, letters only)");
         surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField suffixField = new TextField();
@@ -976,8 +1009,7 @@ public class AdminDashboardView extends BorderPane {
                 "Bachelor of Science in Computer Science",
                 "Bachelor of Science in Information Systems",
                 "Bachelor of Science in Computer Engineering",
-                "Bachelor of Science in Business Administration",
-                "Other"
+                "Bachelor of Science in Business Administration"
         );
         courseCombo.setValue("Bachelor of Science in Information Technology");
 
@@ -1082,7 +1114,7 @@ public class AdminDashboardView extends BorderPane {
         String suffix = user.getSuffix() != null ? user.getSuffix() : "";
 
         TextField firstNameField = new TextField(first);
-        firstNameField.setPromptText("e.g. Juan (letters only)");
+        firstNameField.setPromptText("e.g. Juan (3+ letters, letters only)");
         firstNameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField middleField = new TextField(middle);
@@ -1090,7 +1122,7 @@ public class AdminDashboardView extends BorderPane {
         middleField.setTextFormatter(TextFieldFilters.shortNameFilter());
 
         TextField surnameField = new TextField(surname);
-        surnameField.setPromptText("e.g. Dela Cruz (letters only)");
+        surnameField.setPromptText("e.g. Dela Cruz (3+ letters, letters only)");
         surnameField.setTextFormatter(TextFieldFilters.nameFilter(InputValidator.getMaxNameLength()));
 
         TextField suffixField = new TextField(suffix);
@@ -1108,8 +1140,7 @@ public class AdminDashboardView extends BorderPane {
                 "Bachelor of Science in Computer Science",
                 "Bachelor of Science in Information Systems",
                 "Bachelor of Science in Computer Engineering",
-                "Bachelor of Science in Business Administration",
-                "Other"
+                "Bachelor of Science in Business Administration"
         );
         if (currentCourse != null && !courseCombo.getItems().contains(currentCourse)) {
             courseCombo.getItems().add(currentCourse);
@@ -1239,12 +1270,46 @@ public class AdminDashboardView extends BorderPane {
         return password.toString();
     }
 
+    /**
+     * Pins a table column to an exact width: it can never grow, shrink or be
+     * dragged, so structural columns (IDs, status, actions) keep their size
+     * under the constrained resize policy.
+     */
+    private <S, T> void pinColumn(TableColumn<S, T> col, double width) {
+        col.setMinWidth(width);
+        col.setPrefWidth(width);
+        col.setMaxWidth(width);
+        col.setResizable(false);
+    }
+
+    /**
+     * Lets a column flex with the table width, sharing leftover space
+     * proportionally instead of being crushed to the JavaFX ~29px default
+     * minimum. Keeps a sane floor so text truncates gracefully.
+     */
+    private <S, T> void flexColumn(TableColumn<S, T> col, double minWidth, double prefWidth) {
+        col.setMinWidth(minWidth);
+        col.setPrefWidth(prefWidth);
+        col.setMaxWidth(Double.MAX_VALUE);
+        col.setResizable(true);
+    }
+
     private static <T> void lockColumnOrder(TableView<T> table) {
         javafx.collections.ObservableList<TableColumn<T, ?>> columns = table.getColumns();
         List<TableColumn<T, ?>> fixedOrder = new java.util.ArrayList<>(columns);
         columns.addListener((javafx.collections.ListChangeListener<TableColumn<T, ?>>) change -> {
             if (!columns.equals(fixedOrder)) {
                 columns.setAll(fixedOrder);
+            }
+        });
+
+        table.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                javafx.application.Platform.runLater(() -> {
+                    for (javafx.scene.Node header : table.lookupAll(".column-header")) {
+                        header.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_DRAGGED, e -> e.consume());
+                    }
+                });
             }
         });
     }
@@ -1269,14 +1334,14 @@ public class AdminDashboardView extends BorderPane {
 
         Button regenerateBtn = new Button("↻ Generate New");
         regenerateBtn.getStyleClass().add("button-secondary");
-        regenerateBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+        regenerateBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
         regenerateBtn.setOnAction(e -> passwordValue.setValue(generateTempPassword()));
 
         HBox passRow = new HBox(8, passwordValue, regenerateBtn);
         HBox.setHgrow(passwordValue, Priority.ALWAYS);
 
         Label hintLabel = new Label("A secure temporary password is generated automatically. Give it to the student — they can change it on their Account Settings page. Use the eye button to reveal it, or Generate New for a different one.");
-        hintLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft; -fx-wrap-text: true;");
+        hintLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft; -fx-wrap-text: true;");
 
         grid.addRow(0, new Label("Temporary Password:"), passRow);
 
@@ -1472,8 +1537,8 @@ public class AdminDashboardView extends BorderPane {
             Button newestBtn = new Button("↓ Newest first");
             oldestBtn.getStyleClass().add("button-secondary");
             newestBtn.getStyleClass().add("button-secondary");
-            oldestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
-            newestBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+            oldestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
+            newestBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
             applySortSelection(oldestBtn, newestBtn, archiveSortNewest);
 
             searchRow.getChildren().addAll(searchField, oldestBtn, newestBtn, countBadge);
@@ -1511,7 +1576,9 @@ public class AdminDashboardView extends BorderPane {
                         setGraphic(null);
                     } else if ("APPROVED".equals(item)) {
                         Label b = new Label("✓ Approved");
-                        b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                        b.setGraphic(new Circle(3.5));
+                        b.setGraphicTextGap(6);
+                        b.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 12.5px;");
                         setGraphic(b);
                     } else if ("PENDING".equals(item)) {
                         Label b = new Label("Pending");
@@ -1521,7 +1588,7 @@ public class AdminDashboardView extends BorderPane {
                         setGraphic(b);
                     } else {
                         Label b = new Label("✕ " + item);
-                        b.setStyle("-fx-background-color: -fx-danger-tint; -fx-text-fill: -fx-danger; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700;");
+                        b.setStyle("-fx-background-color: -fx-danger-tint; -fx-text-fill: -fx-danger; -fx-padding: 3 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 12.5px;");
                         setGraphic(b);
                     }
                 }
@@ -1529,10 +1596,8 @@ public class AdminDashboardView extends BorderPane {
 
             TableColumn<ArchiveEntry, String> deletedCol = new TableColumn<>("Deleted On");
             deletedCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getArchivedAtDisplay()));
-            deletedCol.setMinWidth(150);
 
             TableColumn<ArchiveEntry, Void> actionCol = new TableColumn<>("Actions");
-            actionCol.setMinWidth(200);
             actionCol.setCellFactory(col -> new TableCell<>() {
                 private final Button restoreBtn = new Button("Restore");
                 private final Button purgeBtn = new Button("Delete Forever");
@@ -1541,14 +1606,14 @@ public class AdminDashboardView extends BorderPane {
                 {
                     btnBox.setAlignment(Pos.CENTER);
                     restoreBtn.getStyleClass().add("button-primary");
-                    restoreBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                    restoreBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                     restoreBtn.setOnAction(e -> {
                         ArchiveEntry entry = getTableView().getItems().get(getIndex());
                         confirmRestoreArchived(entry);
                     });
 
                     purgeBtn.getStyleClass().add("button-danger");
-                    purgeBtn.setStyle("-fx-font-size: 11px; -fx-padding: 4 10;");
+                    purgeBtn.setStyle("-fx-font-size: 12px; -fx-padding: 4 10;");
                     purgeBtn.setOnAction(e -> {
                         ArchiveEntry entry = getTableView().getItems().get(getIndex());
                         confirmPurgeArchived(entry);
@@ -1562,9 +1627,19 @@ public class AdminDashboardView extends BorderPane {
                 }
             });
 
+            // Fixed structural widths: pinned columns never move, flexible
+            // ones share the remaining width proportionally.
+            pinColumn(idCol, 112);
+            flexColumn(nameCol, 150, 195);
+            flexColumn(courseCol, 110, 150);
+            pinColumn(statusCol, 150);
+            flexColumn(deletedCol, 140, 170);
+            flexColumn(actionCol, 196, 214);
+
             table.getColumns().addAll(List.of(idCol, nameCol, courseCol, statusCol, deletedCol, actionCol));
             table.getColumns().forEach(col -> col.setSortable(false));
             lockColumnOrder(table);
+            table.setPlaceholder(new Label("Nothing archived yet. Deleted accounts will appear here."));
 
             // Pagination Controls Bar
             HBox paginationBar = new HBox(12);
@@ -1797,7 +1872,7 @@ public class AdminDashboardView extends BorderPane {
         connTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         VBox.setVgrow(connTable, Priority.ALWAYS);
         connTable.setMaxHeight(Double.MAX_VALUE);
-        connTable.setMinHeight(280);
+        connTable.setMinHeight(240);
 
         TableColumn<String[], String> colA = new TableColumn<>("Student A");
         colA.setCellValueFactory(data -> {
@@ -1814,12 +1889,11 @@ public class AdminDashboardView extends BorderPane {
         });
 
         TableColumn<String[], Void> actionCol = new TableColumn<>("Action");
-        actionCol.setMinWidth(110);
         actionCol.setCellFactory(col -> new TableCell<>() {
             private final Button delBtn = new Button("Disconnect");
             {
-                delBtn.getStyleClass().add("button-secondary");
-                delBtn.setStyle("-fx-text-fill: -fx-danger; -fx-font-size: 11px;");
+                delBtn.getStyleClass().add("button-ghost-danger");
+                delBtn.setStyle("-fx-font-size: 13px; -fx-padding: 6px 12px;");
                 delBtn.setOnAction(e -> {
                     String[] pair = getTableView().getItems().get(getIndex());
                     confirmDisconnectEdge(pair[0], pair[1]);
@@ -1829,13 +1903,21 @@ public class AdminDashboardView extends BorderPane {
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
                 setGraphic(empty ? null : delBtn);
             }
         });
 
+        // Fixed structural widths: both student columns flex, the action
+        // column stays a stable width.
+        flexColumn(colA, 190, 250);
+        flexColumn(colB, 190, 250);
+        pinColumn(actionCol, 142);
+
         connTable.getColumns().addAll(List.of(colA, colB, actionCol));
         connTable.getColumns().forEach(col -> col.setSortable(false));
         lockColumnOrder(connTable);
+        connTable.setPlaceholder(new Label("No network edges yet. Create a connection above."));
 
         // Pagination Controls Bar
         HBox connPaginationBar = new HBox(12);
@@ -2010,7 +2092,7 @@ public class AdminDashboardView extends BorderPane {
         // Toggle for raw dump
         Button toggleDumpBtn = new Button("Show Raw Dump");
         toggleDumpBtn.getStyleClass().add("button-secondary");
-        toggleDumpBtn.setStyle("-fx-font-size: 11px;");
+        toggleDumpBtn.setStyle("-fx-font-size: 12px;");
 
         TextArea rawDumpArea = new TextArea();
         rawDumpArea.setEditable(false);
@@ -2070,11 +2152,11 @@ public class AdminDashboardView extends BorderPane {
                 Label nameLabel = new Label(sn != null ? sn.getFullName() : vid);
                 nameLabel.setStyle("-fx-font-weight: 700; -fx-font-size: 13px; -fx-text-fill: -fx-ink;");
                 Label idLabel = new Label(vid);
-                idLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft;");
+                idLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft;");
                 Region hSpacer = new Region();
                 HBox.setHgrow(hSpacer, Priority.ALWAYS);
                 Label degreeBadge = new Label("Degree: " + degree);
-                degreeBadge.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 11px;");
+                degreeBadge.setStyle("-fx-background-color: -fx-green-tint; -fx-text-fill: -fx-green; -fx-padding: 2 8; -fx-background-radius: 6; -fx-font-weight: 700; -fx-font-size: 12px;");
                 nodeHeader.getChildren().addAll(nameLabel, idLabel, hSpacer, degreeBadge);
 
                 FlowPane neighborChips = new FlowPane(6, 4);
@@ -2083,12 +2165,12 @@ public class AdminDashboardView extends BorderPane {
                         com.networkfinder.dsa.StudentNode nn = networkService.getGraph().getNode(nid);
                         String chipText = nn != null ? nn.getFullName() : nid;
                         Label chip = new Label(chipText);
-                        chip.setStyle("-fx-background-color: rgba(255,255,255,0.07); -fx-text-fill: -fx-ink-soft; -fx-padding: 2 8; -fx-background-radius: 10; -fx-font-size: 11px;");
+                        chip.setStyle("-fx-background-color: rgba(255,255,255,0.07); -fx-text-fill: -fx-ink-soft; -fx-padding: 2 8; -fx-background-radius: 10; -fx-font-size: 12px;");
                         neighborChips.getChildren().add(chip);
                     }
                 } else {
                     Label noEdges = new Label("No connections");
-                    noEdges.setStyle("-fx-font-size: 11px; -fx-text-fill: -fx-ink-soft; -fx-font-style: italic;");
+                    noEdges.setStyle("-fx-font-size: 12px; -fx-text-fill: -fx-ink-soft; -fx-font-style: italic;");
                     neighborChips.getChildren().add(noEdges);
                 }
 

@@ -14,6 +14,7 @@ public final class InputValidator {
     private static final String PASSWORD_LETTER_PATTERN = ".*[A-Za-z].*";
 
     private static final int VALID_ID_LENGTH = 10;
+    private static final int PERSON_NAME_MIN_LENGTH = 3;
     private static final int FIRST_NAME_MAX_LENGTH = 30;
     private static final int SURNAME_MAX_LENGTH = 40;
     private static final int MAX_SECTION_LENGTH = 30;
@@ -55,11 +56,18 @@ public final class InputValidator {
         return null;
     }
 
-    /** Valid: non-blank letters/spaces only, internal spaces, at most maxLength. */
+    /**
+     * Valid: at least 3 letters (letters/spaces only, internal spaces), at most maxLength.
+     * A 3-letter floor keeps real names (Ana, Alan, Kim) while blocking 1-2
+     * character placeholders that would clutter the network graph labels.
+     */
     private static String checkPersonName(String rawName, String label, int maxLength) {
         String name = rawName == null ? "" : rawName.trim();
         if (name.isEmpty()) {
             return label + " is required.";
+        }
+        if (name.length() < PERSON_NAME_MIN_LENGTH) {
+            return label + " must be at least " + PERSON_NAME_MIN_LENGTH + " letters.";
         }
         if (name.length() > maxLength) {
             return label + " must be at most " + maxLength + " characters.";
@@ -70,12 +78,12 @@ public final class InputValidator {
         return null;
     }
 
-    /** Valid: non-blank letters etc., at most 30 chars. */
+    /** Valid: at least 3 letters, at most 30 chars. */
     public static String checkFirstName(String rawFirstName) {
         return checkPersonName(rawFirstName, "First name", FIRST_NAME_MAX_LENGTH);
     }
 
-    /** Valid: non-blank letters etc., at most 40 chars (covers surnames like "Dela Cruz"). */
+    /** Valid: at least 3 letters, at most 40 chars (covers surnames like "Dela Cruz"). */
     public static String checkSurname(String rawSurname) {
         return checkPersonName(rawSurname, "Surname", SURNAME_MAX_LENGTH);
     }
